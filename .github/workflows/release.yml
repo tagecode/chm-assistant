@@ -1,0 +1,149 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+jobs:
+  build:
+    name: Build (${{ matrix.platform }} / ${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # macOS arm64（Apple Silicon）
+          - os: macos-latest
+            platform: mac
+            arch: arm64
+            needs_chmcmd: true
+            artifact_glob: |
+              release/**/*.dmg
+              release/**/*.zip
+          # macOS x64（Intel）；在 Apple Silicon runner 上交叉编译 native + 应用
+          - os: macos-latest
+            platform: mac
+            arch: x64
+            needs_chmcmd: true
+            artifact_glob: |
+              release/**/*.dmg
+              release/**/*.zip
+          - os: windows-latest
+            platform: win
+            arch: x64
+            needs_chmcmd: false
+            artifact_glob: |
+              release/**/*.exe
+          - os: ubuntu-latest
+            platform: linux
+            arch: x64
+            needs_chmcmd: true
+            artifact_glob: |
+              release/**/*.AppImage
+              release/**/*.deb
+          - os: ubuntu-24.04-arm
+            platform: linux
+            arch: arm64
+            needs_chmcmd: true
+            artifact_glob: |
+              release/**/*.AppImage
+              release/**/*.deb
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify tag matches package.json
+        if: startsWith(github.ref, 'refs/tags/')
+        run: node scripts/check-release-version.mjs
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - name: Install Linux build dependencies
+        if: matrix.platform == 'linux'
+        run: bash scripts/ci-install-linux-build-deps.sh
+
+      - name: Install chmcmd (macOS / Linux)
+        if: matrix.needs_chmcmd
+        run: bash scripts/ci-install-chmcmd.sh
+        env:
+          CI_ARCH: ${{ matrix.arch }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Regenerate macOS icon (optional)
+        if: matrix.platform == 'mac'
+        run: pnpm run icons:generate
+
+      - name: Package (${{ matrix.platform }} / ${{ matrix.arch }})
+        run: node scripts/ci-package.mjs
+        env:
+          CI_PLATFORM: ${{ matrix.platform }}
+          CI_ARCH: ${{ matrix.arch }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          USE_SYSTEM_FUSE: 'true'
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}-${{ matrix.arch }}-dist
+          path: ${{ matrix.artifact_glob }}
+          if-no-files-found: error
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/**/*.dmg
+            artifacts/**/*.zip
+            artifacts/**/*.exe
+            artifacts/**/*.AppImage
+            artifacts/**/*.deb
+          generate_release_notes: true
+          body: |
+            ## 安装说明
+
+            产物命名：`CHM Assistant-v{version}-{os}-{arch}.{ext}`
+
+            | 平台 | 架构 | 格式 | 备注 |
+            |------|------|------|------|
+            | macOS | arm64 | `.dmg` / `.zip` | Apple Silicon |
+            | macOS | x64 | `.dmg` / `.zip` | Intel Mac |
+            | Windows | x64 | `.exe` (NSIS) | 编译 CHM 需自装 [HTML Help Workshop](https://learn.microsoft.com/en-us/previous-versions/windows/desktop/htmlhelp/microsoft-html-help-downloads) |
+            | Linux | x64 / arm64 | `.AppImage` / `.deb` | 内置 `chmcmd`（GPL-2，见 NOTICES） |
+
+            未签名构建：macOS 首次打开可能需在系统设置中允许。
+
+            第三方许可：[docs/compiler-setup.md](https://github.com/tagecode/chm-assistant/blob/main/docs/compiler-setup.md)
