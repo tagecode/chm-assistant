@@ -78,7 +78,7 @@ export function searchChmSession(
     }
     hits.push({
       path: internal,
-      title: titleFromPath(internal),
+      title: rec.pageTitles.get(internal) ?? titleFromPath(internal),
       snippet: makeSnippet(text, q),
     })
   }

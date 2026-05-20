@@ -433,7 +433,7 @@ export function ReaderView({
   const zoomStyle: CSSProperties = { zoom: `${zoomPercent}%` }
 
   return (
-    <div className="flex h-[calc(100vh-7rem)] flex-col border-t border-border/60">
+    <div className="flex h-[calc(100vh-3.5rem)] flex-col border-t border-border/60">
       <div className="flex flex-wrap items-center gap-2 border-b border-border/60 px-2 py-2">
         <div className="flex gap-1">
           <Button
@@ -601,19 +601,19 @@ export function ReaderView({
             )}
           </div>
         </aside>
-        <section className="flex min-w-0 flex-1 flex-col overflow-auto bg-background">
+        <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
           <div
             className={cn(
-              'mx-auto min-h-full w-full p-4',
+              'mx-auto flex h-full min-h-0 w-full flex-col p-4',
               widthMode === 'fit' ? 'max-w-4xl' : 'max-w-none',
             )}
           >
-            <div style={zoomStyle}>
+            <div className="flex min-h-0 flex-1 flex-col" style={zoomStyle}>
               <iframe
                 ref={iframeRef}
                 key={`${tab.sessionId}:${readerEncoding}:${currentPath}#${currentFragment}`}
                 title={t('reader.frameTitle')}
-                className="min-h-[480px] w-full border-0 bg-background"
+                className="min-h-0 flex-1 w-full border-0 bg-background"
                 src={frameSrc}
                 sandbox="allow-scripts allow-same-origin allow-popups"
               />

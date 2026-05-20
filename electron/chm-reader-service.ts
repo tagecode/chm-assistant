@@ -8,10 +8,13 @@ import { getChmAddon } from './chm-native'
 import { resolveChmFsPath } from './chm-fs'
 import { findSystemInternalPath, parseChmSystem } from './chm-system'
 import { decodeChmText, htmlToPlainText } from './chm-text'
+import { enrichTocTitles } from './chm-toc-enrich'
 
 export interface SessionRecord {
   filePath: string
   paths: string[]
+  /** 包内 HTML 路径 → 可读标题（目录补全 / 搜索复用） */
+  pageTitles: Map<string, string>
 }
 
 const openSessions = new Set<string>()
@@ -189,7 +192,11 @@ export function openChmSession(rawPath: string, readerEncodingPref = 'auto'): Ch
     systemMeta.title?.trim() ||
     path.basename(resolved.path, path.extname(resolved.path))
 
-  sessionRecords.set(sid, { filePath: resolved.path, paths })
+  const pageTitles = new Map<string, string>()
+  toc = enrichTocTitles(toc, readObject, readerEncodingPref, pageTitles)
+  index = enrichTocTitles(index, readObject, readerEncodingPref, pageTitles)
+
+  sessionRecords.set(sid, { filePath: resolved.path, paths, pageTitles })
   openSessions.add(sid)
   return {
     ok: true,

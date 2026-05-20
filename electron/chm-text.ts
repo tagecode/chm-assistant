@@ -122,3 +122,18 @@ export function htmlToPlainText(html: string): string {
     .replace(/\n{3,}/g, '\n\n')
     .trim()
 }
+
+/** 从 HTML 页面提取可读标题（title → h1）。 */
+export function extractHtmlTitle(html: string): string | null {
+  try {
+    const doc = parse(html, { lowerCaseTagName: true })
+    const fromTitle = doc.querySelector('title')?.text?.replace(/\s+/g, ' ').trim() ?? ''
+    if (fromTitle) {
+      return fromTitle
+    }
+    const fromH1 = doc.querySelector('h1')?.text?.replace(/\s+/g, ' ').trim() ?? ''
+    return fromH1 || null
+  } catch {
+    return null
+  }
+}
