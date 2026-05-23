@@ -75,6 +75,7 @@ export function ComposerView({
   const [loadError, setLoadError] = useState<string | null>(null)
   const [config, setConfig] = useState<ChmProjectConfig | null>(null)
   const [activeMdPath, setActiveMdPath] = useState<string | null>(null)
+  const [editorReadyPath, setEditorReadyPath] = useState<string | null>(null)
   const [editorValue, setEditorValue] = useState('')
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -92,6 +93,7 @@ export function ComposerView({
   const [renameNode, setRenameNode] = useState<ProjectTocNode | null>(null)
   const [renameTitle, setRenameTitle] = useState('')
   const [renameMdPath, setRenameMdPath] = useState('')
+  const [leavePrompt, setLeavePrompt] = useState<{ targetMdPath: string } | null>(null)
 
   const rootPath = tab.path
 
@@ -115,27 +117,46 @@ export function ComposerView({
 
   useEffect(() => {
     const api = window.electronAPI
-    if (!api || !activeMdPath) return
+    if (!api || !activeMdPath) {
+      setEditorReadyPath(null)
+      return
+    }
+    let cancelled = false
+    setEditorReadyPath(null)
     void (async () => {
       const res = await api.readProjectMarkdown(rootPath, activeMdPath)
+      if (cancelled) return
       if (res.ok && res.content != null) {
         setEditorValue(res.content)
         setDirty(false)
+        setEditorReadyPath(activeMdPath)
       }
     })()
+    return () => {
+      cancelled = true
+    }
   }, [activeMdPath, rootPath])
 
   useEffect(() => {
-    if (pendingRevealLine.current != null && activeMdPath) {
+    if (
+      pendingRevealLine.current != null &&
+      activeMdPath &&
+      editorReadyPath === activeMdPath
+    ) {
       const line = pendingRevealLine.current
       pendingRevealLine.current = null
       requestAnimationFrame(() => editorRef.current?.revealLine(line))
     }
-  }, [activeMdPath, editorValue])
+  }, [activeMdPath, editorReadyPath])
 
   useEffect(() => {
     const api = window.electronAPI
-    if (!api || !showPreview || !activeMdPath) {
+    if (
+      !api ||
+      !showPreview ||
+      !activeMdPath ||
+      editorReadyPath !== activeMdPath
+    ) {
       setPreviewHtml('')
       return
     }
@@ -146,7 +167,7 @@ export function ComposerView({
         .catch(() => setPreviewHtml(''))
     }, 280)
     return () => clearTimeout(timer)
-  }, [editorValue, activeMdPath, rootPath, showPreview])
+  }, [editorValue, activeMdPath, editorReadyPath, rootPath, showPreview])
 
   useEffect(() => {
     const api = window.electronAPI
@@ -159,13 +180,15 @@ export function ComposerView({
   const saveCurrent = useCallback(async (): Promise<boolean> => {
     const api = window.electronAPI
     if (!api || !activeMdPath) return false
+    const content = editorRef.current?.getValue() || editorValue
     setSaving(true)
-    const res = await api.writeProjectMarkdown(rootPath, activeMdPath, editorValue)
+    const res = await api.writeProjectMarkdown(rootPath, activeMdPath, content)
     setSaving(false)
     if (!res.ok) {
       window.alert(res.message ?? t('composer.error.saveFailed'))
       return false
     }
+    setEditorValue(content)
     setDirty(false)
     return true
   }, [activeMdPath, editorValue, rootPath, t])
@@ -185,18 +208,33 @@ export function ComposerView({
   }, [tab.id, dirty, saveCurrent, onRegisterTabHandle])
 
   const selectMd = useCallback(
-    async (mdPath: string) => {
+    (mdPath: string) => {
       if (mdPath === activeMdPath) return
       if (dirty) {
-        const saveFirst = window.confirm(t('composer.confirmSaveBeforeLeave'))
-        if (saveFirst) {
-          const did = await saveCurrent()
-          if (!did) return
-        }
+        setLeavePrompt({ targetMdPath: mdPath })
+        return
       }
       setActiveMdPath(mdPath)
     },
-    [activeMdPath, dirty, saveCurrent, t],
+    [activeMdPath, dirty],
+  )
+
+  const completeLeavePrompt = useCallback(
+    async (action: 'save' | 'discard' | 'cancel') => {
+      if (!leavePrompt) return
+      const target = leavePrompt.targetMdPath
+      if (action === 'cancel') {
+        setLeavePrompt(null)
+        return
+      }
+      if (action === 'save') {
+        const did = await saveCurrent()
+        if (!did) return
+      }
+      setLeavePrompt(null)
+      setActiveMdPath(target)
+    },
+    [leavePrompt, saveCurrent],
   )
 
   const jumpToLogLine = useCallback(
@@ -479,16 +517,24 @@ export function ComposerView({
             ) : null}
             <div className="min-h-0 flex-1">
               {activeMdPath ? (
-                <ComposerEditor
-                  ref={editorRef}
-                  value={editorValue}
-                  onChange={(v) => {
-                    setEditorValue(v)
-                    setDirty(true)
-                  }}
-                  onSave={handleEditorSave}
-                  loadingLabel={t('app.loading')}
-                />
+                editorReadyPath === activeMdPath ? (
+                  <ComposerEditor
+                    key={activeMdPath}
+                    ref={editorRef}
+                    filePath={activeMdPath}
+                    initialValue={editorValue}
+                    onChange={(v) => {
+                      setEditorValue(v)
+                      setDirty(true)
+                    }}
+                    onSave={handleEditorSave}
+                    loadingLabel={t('app.loading')}
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                    {t('app.loading')}
+                  </div>
+                )
               ) : (
                 <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
                   {t('composer.pickFile')}
@@ -553,6 +599,31 @@ export function ComposerView({
           </aside>
         ) : null}
       </div>
+
+      <Dialog
+        open={leavePrompt != null}
+        onOpenChange={(open) => {
+          if (!open) setLeavePrompt(null)
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('composer.unsavedLeaveTitle')}</DialogTitle>
+            <DialogDescription>{t('composer.confirmSaveBeforeLeave')}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-row flex-wrap justify-end gap-2 sm:gap-2">
+            <Button variant="outline" onClick={() => void completeLeavePrompt('cancel')}>
+              {t('project.cancel')}
+            </Button>
+            <Button variant="outline" onClick={() => void completeLeavePrompt('discard')}>
+              {t('composer.leaveWithoutSaving')}
+            </Button>
+            <Button onClick={() => void completeLeavePrompt('save')}>
+              {t('composer.saveAndSwitch')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={metaOpen} onOpenChange={setMetaOpen}>
         <DialogContent className="max-w-md">

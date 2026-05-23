@@ -7,17 +7,22 @@ const MonacoEditor = lazy(() => import('@monaco-editor/react'))
 export interface ComposerEditorHandle {
   revealLine: (line: number) => void
   insertAtCursor: (text: string) => void
+  focus: () => void
+  getValue: () => string
 }
 
 interface ComposerEditorProps {
-  value: string
+  /** 仅在挂载时写入 Monaco（非受控，避免切换文件后输入被 value 同步阻塞） */
+  initialValue: string
   onChange: (value: string) => void
   loadingLabel: string
   onSave?: () => void
+  /** 用于 Monaco 区分不同文件模型 */
+  filePath?: string
 }
 
 export const ComposerEditor = forwardRef<ComposerEditorHandle, ComposerEditorProps>(
-  function ComposerEditor({ value, onChange, loadingLabel, onSave }, ref) {
+  function ComposerEditor({ initialValue, onChange, loadingLabel, onSave, filePath }, ref) {
     const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
     const onSaveRef = useRef(onSave)
 
@@ -35,9 +40,19 @@ export const ComposerEditor = forwardRef<ComposerEditorHandle, ComposerEditorPro
           onSaveRef.current?.()
         },
       })
+      // confirm 等原生对话框关闭后，需延迟聚焦才能恢复键盘输入
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => ed.focus())
+      })
     }
 
     useImperativeHandle(ref, () => ({
+      focus() {
+        editorRef.current?.focus()
+      },
+      getValue() {
+        return editorRef.current?.getValue() ?? ''
+      },
       revealLine(line: number) {
         const ed = editorRef.current
         if (!ed) return
@@ -71,9 +86,10 @@ export const ComposerEditor = forwardRef<ComposerEditorHandle, ComposerEditorPro
       >
         <MonacoEditor
           height="100%"
+          path={filePath}
           defaultLanguage="markdown"
           theme="vs-dark"
-          value={value}
+          defaultValue={initialValue}
           onChange={(v) => onChange(v ?? '')}
           onMount={handleMount}
           options={{
