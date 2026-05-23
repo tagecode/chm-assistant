@@ -40,6 +40,7 @@ import {
   gatherAllProjectResources,
 } from '../project-resources'
 import { closeChmSessionsForPath } from '../chm-reader-service'
+import { getChmAddon } from '../chm-native'
 
 const CHMCMD_BUILD_DIR_NAME = '.chm-build'
 const HHC_BUILD_DIR_NAME = 'chm-build-hhc'
@@ -132,6 +133,52 @@ function findTocTitle(nodes: ProjectTocNode[], mdRel: string): string | null {
     }
   }
   return null
+}
+
+function validateCompiledChmFile(chmPath: string): { ok: true } | { ok: false; message: string } {
+  try {
+    const fd = fs.openSync(chmPath, 'r')
+    try {
+      const header = Buffer.alloc(4)
+      const read = fs.readSync(fd, header, 0, header.length, 0)
+      if (read !== 4 || header.toString('ascii') !== 'ITSF') {
+        return { ok: false, message: '输出文件不是有效的 CHM（缺少 ITSF 文件头）' }
+      }
+    } finally {
+      fs.closeSync(fd)
+    }
+  } catch {
+    return {
+      ok: false,
+      message:
+        '输出 CHM 已生成但当前无法读取，可能仍被 hhc.exe、Windows 帮助查看器或杀毒软件占用。请关闭相关进程后重试。',
+    }
+  }
+
+  const addon = getChmAddon()
+  if (!addon) {
+    return { ok: true }
+  }
+  const opened = addon.openChm(chmPath)
+  if (!opened.ok || !opened.sessionId) {
+    return {
+      ok: false,
+      message:
+        '输出 CHM 已生成，但无法被 CHM 解析库打开。产物可能已损坏，请改用 hhc.exe 重新编译，或关闭 Windows 查看器兼容模式后重试。',
+    }
+  }
+  try {
+    const listed = addon.listPaths(opened.sessionId)
+    if (!listed.ok || !listed.paths || listed.paths.length === 0) {
+      return {
+        ok: false,
+        message: '输出 CHM 已生成，但无法枚举包内文件。产物可能已损坏。',
+      }
+    }
+  } finally {
+    addon.closeChm(opened.sessionId)
+  }
+  return { ok: true }
 }
 
 export async function compileProject(
@@ -383,6 +430,13 @@ export async function compileProject(
         : hhcDetail
           ? formatCompileFailureMessage(code, hhcDetail, compiler.kind)
           : `编译失败（退出码 ${code}）。请确认编译器可用（内置 chmcmd、系统 chmcmd 或 hhc.exe）。`
+    emit({ level: 'error', message: err })
+    return { ok: false, error: err, logs }
+  }
+
+  const validChm = validateCompiledChmFile(chmPath)
+  if (!validChm.ok) {
+    const err = `编译器已生成文件，但产物校验失败：${validChm.message}`
     emit({ level: 'error', message: err })
     return { ok: false, error: err, logs }
   }
