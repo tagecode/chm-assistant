@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { ChevronLeft, ChevronRight, Copy, Minus, Plus, Search, X } from 'lucide-react'
 
+import { useAppDialog } from '@/components/app-dialog-provider'
 import { Button } from '@/components/ui/button'
 import { ChmLoadingPanel } from '@/components/chm-loading-panel'
 import { Input } from '@/components/ui/input'
@@ -270,6 +271,7 @@ export function ReaderView({
   onInitialPageReady?: (tabId: string) => void
 }) {
   const { t } = useI18n()
+  const dialog = useAppDialog()
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const initial = defaultReaderUi(tab)
   const [side, setSide] = useState<ReaderSidePanel>(initial.sidePanel)
@@ -471,7 +473,10 @@ export function ReaderView({
     if (!text) {
       const res = await api.readChmPagePlainText(tab.sessionId, currentPath)
       if (!res.ok) {
-        window.alert(t('reader.copyFailed'))
+        await dialog.showAlert({
+          titleKey: 'dialog.errorTitle',
+          descriptionKey: 'reader.copyFailed',
+        })
         return
       }
       text = res.text
@@ -479,10 +484,13 @@ export function ReaderView({
     try {
       await navigator.clipboard.writeText(text)
     } catch {
-      window.alert(t('reader.copyFailed'))
+      await dialog.showAlert({
+        titleKey: 'dialog.errorTitle',
+        descriptionKey: 'reader.copyFailed',
+      })
       return
     }
-  }, [currentPath, t, tab.sessionId])
+  }, [currentPath, dialog, tab.sessionId])
 
   const sideLabel = (key: ReaderSidePanel) => {
     const map: Record<ReaderSidePanel, MessageKey> = {

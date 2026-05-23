@@ -1,10 +1,12 @@
-import { useState, type DragEvent, type ReactNode } from 'react'
-import { ChevronDown, ChevronRight, FileText, Folder, Pencil, Trash2 } from 'lucide-react'
+import { useCallback, useEffect, useState, type DragEvent, type MouseEvent, type ReactNode } from 'react'
+import { ChevronDown, ChevronRight, FilePlus, FileText, Folder, FolderPlus, Pencil, Trash2 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import type { ProjectTocNode, TocMovePlacement } from '@/shared/project'
 
 type DropHint = { targetId: string; position: 'before' | 'after' | 'inside' } | null
+
+type TreeContextTarget = { node: ProjectTocNode | null; x: number; y: number } | null
 
 interface ProjectTreeProps {
   nodes: ProjectTocNode[]
@@ -13,6 +15,9 @@ interface ProjectTreeProps {
   onRename?: (node: ProjectTocNode) => void
   onDelete?: (node: ProjectTocNode) => void
   onMove?: (nodeId: string, placement: TocMovePlacement) => void
+  onNewPage?: (contextNode: ProjectTocNode | null) => void
+  onNewFolder?: (contextNode: ProjectTocNode | null) => void
+  contextMenuLabels?: { newPage: string; newFolder: string }
 }
 
 function resolveDropPlacement(
@@ -84,6 +89,68 @@ function dropHintClass(
   return 'border-b-2 border-primary'
 }
 
+function TreeContextMenu({
+  target,
+  onClose,
+  onNewPage,
+  onNewFolder,
+  labels,
+}: {
+  target: TreeContextTarget
+  onClose: () => void
+  onNewPage?: (contextNode: ProjectTocNode | null) => void
+  onNewFolder?: (contextNode: ProjectTocNode | null) => void
+  labels: { newPage: string; newFolder: string }
+}) {
+  useEffect(() => {
+    if (!target) return
+    const close = () => onClose()
+    window.addEventListener('click', close)
+    window.addEventListener('scroll', close, true)
+    return () => {
+      window.removeEventListener('click', close)
+      window.removeEventListener('scroll', close, true)
+    }
+  }, [target, onClose])
+
+  if (!target || (!onNewPage && !onNewFolder)) return null
+
+  return (
+    <div
+      className="fixed z-50 min-w-[10rem] overflow-hidden rounded-md border border-border bg-popover py-1 text-sm shadow-md"
+      style={{ left: target.x, top: target.y }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {onNewPage ? (
+        <button
+          type="button"
+          className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-muted"
+          onClick={() => {
+            onNewPage(target.node)
+            onClose()
+          }}
+        >
+          <FilePlus className="size-3.5 shrink-0 opacity-70" />
+          {labels.newPage}
+        </button>
+      ) : null}
+      {onNewFolder ? (
+        <button
+          type="button"
+          className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-muted"
+          onClick={() => {
+            onNewFolder(target.node)
+            onClose()
+          }}
+        >
+          <FolderPlus className="size-3.5 shrink-0 opacity-70" />
+          {labels.newFolder}
+        </button>
+      ) : null}
+    </div>
+  )
+}
+
 function FolderNode({
   depth,
   title,
@@ -92,6 +159,7 @@ function FolderNode({
   node,
   onRename,
   onDelete,
+  onContextMenu,
   dragEnabled,
   dropHint,
   onDragStart,
@@ -106,6 +174,7 @@ function FolderNode({
   node: ProjectTocNode
   onRename?: (node: ProjectTocNode) => void
   onDelete?: (node: ProjectTocNode) => void
+  onContextMenu: (e: MouseEvent, node: ProjectTocNode) => void
   dragEnabled: boolean
   dropHint: DropHint
   onDragStart: (e: DragEvent, node: ProjectTocNode) => void
@@ -123,6 +192,7 @@ function FolderNode({
         )}
         style={{ paddingLeft: `${depth * 12 + 8}px` }}
         draggable={dragEnabled}
+        onContextMenu={(e) => onContextMenu(e, node)}
         onDragStart={(e) => onDragStart(e, node)}
         onDragOver={(e) => onDragOver(e, node)}
         onDragLeave={onDragLeave}
@@ -160,6 +230,7 @@ function TreeNode({
   onSelect,
   onRename,
   onDelete,
+  onContextMenu,
   dragEnabled,
   dropHint,
   onDragStart,
@@ -173,6 +244,7 @@ function TreeNode({
   onSelect: (mdPath: string) => void
   onRename?: (node: ProjectTocNode) => void
   onDelete?: (node: ProjectTocNode) => void
+  onContextMenu: (e: MouseEvent, node: ProjectTocNode) => void
   dragEnabled: boolean
   dropHint: DropHint
   onDragStart: (e: DragEvent, node: ProjectTocNode) => void
@@ -197,6 +269,7 @@ function TreeNode({
         )}
         style={{ paddingLeft: `${depth * 12 + 8}px` }}
         draggable={dragEnabled}
+        onContextMenu={(e) => onContextMenu(e, node)}
         onDragStart={(e) => onDragStart(e, node)}
         onDragOver={(e) => onDragOver(e, node)}
         onDragLeave={onDragLeave}
@@ -223,6 +296,7 @@ function TreeNode({
       node={node}
       onRename={onRename}
       onDelete={onDelete}
+      onContextMenu={onContextMenu}
       dragEnabled={dragEnabled}
       dropHint={dropHint}
       onDragStart={onDragStart}
@@ -239,6 +313,7 @@ function TreeNode({
           onSelect={onSelect}
           onRename={onRename}
           onDelete={onDelete}
+          onContextMenu={onContextMenu}
           dragEnabled={dragEnabled}
           dropHint={dropHint}
           onDragStart={onDragStart}
@@ -258,10 +333,28 @@ export function ProjectTree({
   onRename,
   onDelete,
   onMove,
+  onNewPage,
+  onNewFolder,
+  contextMenuLabels,
 }: ProjectTreeProps) {
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dropHint, setDropHint] = useState<DropHint>(null)
+  const [contextTarget, setContextTarget] = useState<TreeContextTarget>(null)
   const dragEnabled = Boolean(onMove)
+
+  const handleContextMenu = useCallback((e: MouseEvent, node: ProjectTocNode) => {
+    if (!onNewPage && !onNewFolder) return
+    e.preventDefault()
+    e.stopPropagation()
+    setContextTarget({ node, x: e.clientX, y: e.clientY })
+  }, [onNewFolder, onNewPage])
+
+  const handleBlankContextMenu = useCallback((e: MouseEvent) => {
+    if (!onNewPage && !onNewFolder) return
+    e.preventDefault()
+    e.stopPropagation()
+    setContextTarget({ node: null, x: e.clientX, y: e.clientY })
+  }, [onNewFolder, onNewPage])
 
   const handleDragStart = (e: DragEvent, node: ProjectTocNode) => {
     if (!onMove) return
@@ -302,30 +395,54 @@ export function ProjectTree({
     setDropHint(null)
   }
 
-  if (nodes.length === 0) {
-    return (
-      <p className="px-2 py-4 text-center text-xs text-muted-foreground">—</p>
-    )
+  const contextLabels = contextMenuLabels ?? {
+    newPage: 'New page',
+    newFolder: 'New folder',
   }
+
   return (
-    <nav className="space-y-0.5 overflow-y-auto p-2" onDragEnd={endDrag}>
-      {nodes.map((node) => (
-        <TreeNode
-          key={node.id}
-          node={node}
-          depth={0}
-          activeMdPath={activeMdPath}
-          onSelect={onSelect}
-          onRename={onRename}
-          onDelete={onDelete}
-          dragEnabled={dragEnabled}
-          dropHint={dropHint}
-          onDragStart={handleDragStart}
-          onDragOver={handleDragOver}
-          onDragLeave={() => setDropHint(null)}
-          onDrop={handleDrop}
-        />
-      ))}
-    </nav>
+    <>
+      <div
+        className="flex min-h-0 flex-1 flex-col"
+        onContextMenu={handleBlankContextMenu}
+      >
+        <nav
+          className="min-h-0 flex-1 space-y-0.5 overflow-y-auto p-2"
+          onDragEnd={endDrag}
+        >
+          {nodes.length === 0 ? (
+            <p className="pointer-events-none px-2 py-4 text-center text-xs text-muted-foreground">
+              —
+            </p>
+          ) : (
+            nodes.map((node) => (
+              <TreeNode
+                key={node.id}
+                node={node}
+                depth={0}
+                activeMdPath={activeMdPath}
+                onSelect={onSelect}
+                onRename={onRename}
+                onDelete={onDelete}
+                onContextMenu={handleContextMenu}
+                dragEnabled={dragEnabled}
+                dropHint={dropHint}
+                onDragStart={handleDragStart}
+                onDragOver={handleDragOver}
+                onDragLeave={() => setDropHint(null)}
+                onDrop={handleDrop}
+              />
+            ))
+          )}
+        </nav>
+      </div>
+      <TreeContextMenu
+        target={contextTarget}
+        onClose={() => setContextTarget(null)}
+        onNewPage={onNewPage}
+        onNewFolder={onNewFolder}
+        labels={contextLabels}
+      />
+    </>
   )
 }

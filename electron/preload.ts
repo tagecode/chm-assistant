@@ -44,8 +44,21 @@ const electronApi: ElectronApi = {
     ipcRenderer.invoke('project:read-md', { rootPath, mdPath }),
   writeProjectMarkdown: (rootPath, mdPath, content) =>
     ipcRenderer.invoke('project:write-md', { rootPath, mdPath, content }),
-  createProjectPage: (rootPath, config, mdPath, title) =>
-    ipcRenderer.invoke('project:create-page', { rootPath, config, mdPath, title }),
+  createProjectPage: (rootPath, config, title, mdPath, contextNodeId) =>
+    ipcRenderer.invoke('project:create-page', {
+      rootPath,
+      config,
+      title,
+      mdPath,
+      contextNodeId,
+    }),
+  createProjectFolder: (rootPath, config, folderName, contextNodeId) =>
+    ipcRenderer.invoke('project:create-folder', {
+      rootPath,
+      config,
+      folderName,
+      contextNodeId,
+    }),
   refreshProjectToc: (rootPath, config) =>
     ipcRenderer.invoke('project:refresh-toc', { rootPath, config }),
   compileProject: (rootPath, config) =>

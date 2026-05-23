@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button'
+import { useAppDialog } from '@/components/app-dialog-provider'
 import { useI18n } from '@/i18n/i18n-context'
 import type { AppMetadata } from '@/shared/electron'
 
@@ -9,6 +10,7 @@ interface AboutViewProps {
 
 export function AboutView({ metadata, onBack }: AboutViewProps) {
   const { t } = useI18n()
+  const dialog = useAppDialog()
 
   return (
     <div className="mx-auto max-w-xl px-6 py-10">
@@ -42,7 +44,7 @@ export function AboutView({ metadata, onBack }: AboutViewProps) {
             void (async () => {
               const res = await window.electronAPI?.openNoticesFile()
               if (res && !res.ok) {
-                window.alert(res.message ?? t('about.openNoticesFailed'))
+                await dialog.showError(res.message ?? t('about.openNoticesFailed'))
               }
             })()
           }}

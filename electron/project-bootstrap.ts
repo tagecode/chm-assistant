@@ -3,6 +3,7 @@ import path from 'node:path'
 
 import type { ChmProjectConfig } from '../src/shared/project'
 import { CHMPROJ_FILENAME } from '../src/shared/project'
+import { DEFAULT_DOCS_DIR } from './project-docs'
 import { writeUtf8NoBom } from './project-fs'
 
 const CHMPROJ_VERSION = 1 as const
@@ -21,7 +22,8 @@ export function createProjectInDirectory(
   }
 
   const projFile = path.join(rootPath, CHMPROJ_FILENAME)
-  const indexMd = path.join(rootPath, 'index.md')
+  const indexRel = `${DEFAULT_DOCS_DIR}/index.md`
+  const indexMd = path.join(rootPath, indexRel)
   if (fs.existsSync(projFile)) {
     return { ok: false, error: '目录中已存在 chm-assistant.chmproj' }
   }
@@ -33,14 +35,15 @@ export function createProjectInDirectory(
     title,
     author: '',
     createdAt: now,
-    defaultPage: 'index.md',
+    defaultPage: indexRel,
     language: 'zh-Hans',
     charset: 'utf-8',
+    docsDir: DEFAULT_DOCS_DIR,
     toc: [
       {
         id: indexId,
         title,
-        mdPath: 'index.md',
+        mdPath: indexRel,
       },
     ],
     assetsDir: 'assets',
@@ -52,7 +55,7 @@ export function createProjectInDirectory(
   writeUtf8NoBom(projFile, `${JSON.stringify(config, null, 2)}\n`)
   writeUtf8NoBom(
     indexMd,
-    `# ${title}\n\n> Markdown 源文件，默认 UTF-8 无 BOM。\n`,
+    `# ${title}\n\n> Markdown 源文件位于 \`${DEFAULT_DOCS_DIR}/\` 目录，默认 UTF-8 无 BOM。\n`,
   )
   fs.mkdirSync(path.join(rootPath, 'assets'), { recursive: true })
 

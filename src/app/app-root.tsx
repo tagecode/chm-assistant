@@ -10,6 +10,7 @@ import type {
 } from '@/shared/electron'
 import type { MessageKey } from '@/i18n/zh-Hans'
 import type { ReaderUiState, WorkspaceTab } from '@/types/workspace'
+import { AppDialogProvider, useAppDialog } from '@/components/app-dialog-provider'
 import { I18nProvider, useI18n } from '@/i18n/i18n-context'
 import { applyTheme } from '@/lib/theme'
 import { buildWorkspaceSession } from '@/lib/reader-persist'
@@ -82,6 +83,7 @@ async function restoreTab(
 
 function AppInner() {
   const { t, setLocaleMode, localeMode } = useI18n()
+  const dialog = useAppDialog()
   const [screen, setScreen] = useState<'home' | 'workspace'>('home')
   const [tabs, setTabs] = useState<WorkspaceTab[]>([])
   const [activeTabId, setActiveTabId] = useState<string | null>(null)
@@ -255,7 +257,10 @@ function AppInner() {
       try {
         const opened = await api.openChmSession(filePath)
         if (!opened.ok) {
-          window.alert(t(CHM_OPEN_ERR[opened.code]))
+          await dialog.showAlert({
+            titleKey: 'dialog.errorTitle',
+            detail: t(CHM_OPEN_ERR[opened.code]),
+          })
           return
         }
 
@@ -288,7 +293,7 @@ function AppInner() {
         setChmOpening(null)
       }
     },
-    [metadata.platform, openReaderTab, refreshRecent, t],
+    [dialog, metadata.platform, openReaderTab, refreshRecent, t],
   )
 
   const handleReaderInitialPageReady = useCallback((tabId: string) => {
@@ -561,7 +566,9 @@ interface AppRootProps {
 export function AppRoot({ initialLocale }: AppRootProps) {
   return (
     <I18nProvider initialLocaleMode={initialLocale}>
-      <AppInner />
+      <AppDialogProvider>
+        <AppInner />
+      </AppDialogProvider>
     </I18nProvider>
   )
 }

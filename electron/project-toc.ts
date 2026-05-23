@@ -2,7 +2,13 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import type { ChmProjectConfig, ProjectTocNode, TocMovePlacement } from '../src/shared/project'
-import { resolveMdPath, saveProjectConfig } from './project-fs'
+import {
+  defaultIndexMdPath,
+  projectDocsDir,
+  sanitizeDirName,
+  uniquifyMdRelPath,
+} from './project-docs'
+import { resolveMdPath, saveProjectConfig, writeUtf8NoBom } from './project-fs'
 
 export type TocLocate = {
   node: ProjectTocNode
@@ -33,6 +39,173 @@ export function collectMdPathsFromNode(node: ProjectTocNode): string[] {
     out.push(...collectMdPathsFromNode(child))
   }
   return out
+}
+
+function findParentListByDirPath(
+  nodes: ProjectTocNode[],
+  dirRel: string,
+): ProjectTocNode[] | null {
+  for (const n of nodes) {
+    if (!n.mdPath && n.dirPath?.replace(/\\/g, '/') === dirRel) {
+      if (!n.children) {
+        n.children = []
+      }
+      return n.children
+    }
+    if (n.children?.length) {
+      const hit = findParentListByDirPath(n.children, dirRel)
+      if (hit) return hit
+    }
+  }
+  return null
+}
+
+function findDocsFolderNode(nodes: ProjectTocNode[], docsDir: string): ProjectTocNode | null {
+  for (const n of nodes) {
+    if (!n.mdPath && n.dirPath?.replace(/\\/g, '/') === docsDir) {
+      return n
+    }
+  }
+  return null
+}
+
+/** 解析新建页面/文件夹应写入的磁盘目录与 TOC 父列表 */
+export function resolveTocInsertTarget(
+  config: ChmProjectConfig,
+  contextNodeId?: string | null,
+): { ok: true; dirRel: string; parentList: ProjectTocNode[] } | { ok: false; message: string } {
+  const docsDir = projectDocsDir(config)
+
+  if (!contextNodeId) {
+    const docsFolder = findDocsFolderNode(config.toc, docsDir)
+    if (docsFolder) {
+      if (!docsFolder.children) {
+        docsFolder.children = []
+      }
+      return { ok: true, dirRel: docsDir, parentList: docsFolder.children }
+    }
+    return { ok: true, dirRel: docsDir, parentList: config.toc }
+  }
+
+  const loc = locateTocNode(config.toc, contextNodeId)
+  if (!loc) {
+    return { ok: false, message: '未找到节点' }
+  }
+  const { node } = loc
+
+  if (!node.mdPath) {
+    const dirRel = node.dirPath?.replace(/\\/g, '/') ?? docsDir
+    if (!node.children) {
+      node.children = []
+    }
+    return { ok: true, dirRel, parentList: node.children }
+  }
+
+  const mdDir = path.posix.dirname(node.mdPath.replace(/\\/g, '/'))
+  const dirRel = mdDir === '.' ? docsDir : mdDir
+  return { ok: true, dirRel, parentList: loc.parentList }
+}
+
+function uniquifyDirRel(rootPath: string, parentDirRel: string, baseName: string): string {
+  const safeParent = parentDirRel.replace(/\\/g, '/').replace(/\/+$/, '')
+  let rel = safeParent ? `${safeParent}/${baseName}` : baseName
+  let n = 1
+  while (fs.existsSync(path.join(rootPath, rel.replace(/\//g, path.sep)))) {
+    rel = safeParent ? `${safeParent}/${baseName}-${n}` : `${baseName}-${n}`
+    n += 1
+  }
+  return rel.replace(/\\/g, '/')
+}
+
+export function createTocFolder(
+  rootPath: string,
+  config: ChmProjectConfig,
+  folderName: string,
+  contextNodeId?: string | null,
+): { ok: true; config: ChmProjectConfig; dirPath: string } | { ok: false; message: string } {
+  const name = folderName.trim()
+  if (!name) {
+    return { ok: false, message: '文件夹名不能为空' }
+  }
+  const target = resolveTocInsertTarget(config, contextNodeId)
+  if (!target.ok) {
+    return target
+  }
+  const safeName = sanitizeDirName(name)
+  const dirRel = uniquifyDirRel(rootPath, target.dirRel, safeName)
+  try {
+    fs.mkdirSync(path.join(rootPath, dirRel.replace(/\//g, path.sep)), { recursive: true })
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e) }
+  }
+  const node: ProjectTocNode = {
+    id: crypto.randomUUID(),
+    title: safeName,
+    dirPath: dirRel,
+    children: [],
+  }
+  target.parentList.push(node)
+  saveProjectConfig(rootPath, config)
+  return { ok: true, config, dirPath: dirRel }
+}
+
+export function createTocMarkdownPage(
+  rootPath: string,
+  config: ChmProjectConfig,
+  title: string,
+  mdRelPath?: string,
+  contextNodeId?: string | null,
+): { ok: true; config: ChmProjectConfig; mdPath: string } | { ok: false; message: string } {
+  const pageTitle = title.trim() || '新页面'
+  const docsDir = projectDocsDir(config)
+
+  let rel: string
+  let target:
+    | { ok: true; dirRel: string; parentList: ProjectTocNode[] }
+    | { ok: false; message: string }
+
+  if (mdRelPath?.trim()) {
+    rel = mdRelPath.trim().replace(/\\/g, '/')
+    if (!/\.md$/i.test(rel)) {
+      return { ok: false, message: '路径须以 .md 结尾' }
+    }
+    const mdDir = path.posix.dirname(rel)
+    const dirRel = mdDir === '.' ? docsDir : mdDir
+    const parentList = findParentListByDirPath(config.toc, dirRel)
+    target = parentList
+      ? { ok: true, dirRel, parentList }
+      : resolveTocInsertTarget(config, contextNodeId)
+  } else {
+    target = resolveTocInsertTarget(config, contextNodeId)
+    if (!target.ok) {
+      return target
+    }
+    const stem = sanitizeDirName(pageTitle).replace(/-/g, '_')
+    rel = uniquifyMdRelPath(rootPath, target.dirRel, `${stem}.md`)
+  }
+
+  if (!target.ok) {
+    return target
+  }
+
+  try {
+    const abs = resolveMdPath(rootPath, rel)
+    if (fs.existsSync(abs)) {
+      return { ok: false, message: '文件已存在' }
+    }
+    fs.mkdirSync(path.dirname(abs), { recursive: true })
+    writeUtf8NoBom(abs, `# ${pageTitle}\n\n`)
+    const node: ProjectTocNode = {
+      id: crypto.randomUUID(),
+      title: pageTitle,
+      mdPath: rel,
+    }
+    target.parentList.push(node)
+    saveProjectConfig(rootPath, config)
+    return { ok: true, config, mdPath: rel }
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e) }
+  }
 }
 
 function walkUpdateMdPath(nodes: ProjectTocNode[], oldPath: string, newPath: string): void {
@@ -193,7 +366,7 @@ export function deleteTocNode(
   }
   if (mdPaths.some((p) => p === defaultNorm)) {
     const remain = config.toc.flatMap((n) => collectMdPathsFromNode(n))
-    config.defaultPage = remain[0] ?? 'index.md'
+    config.defaultPage = remain[0] ?? defaultIndexMdPath(config)
   }
   saveProjectConfig(rootPath, config)
   return { ok: true, config, deletedMdPaths: mdPaths }

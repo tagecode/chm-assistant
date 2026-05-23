@@ -200,7 +200,7 @@ async function checkCompileUtf8() {
     })
     return
   }
-  const md = readUtf8NoBom(path.join(scratch, 'index.md'))
+  const md = readUtf8NoBom(path.join(scratch, 'docs', 'index.md'))
   record({
     id: '7.2.source-chinese',
     title: '源 Markdown 含中文',

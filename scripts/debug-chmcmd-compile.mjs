@@ -6,8 +6,9 @@ import { loadProjectConfig } from '../dist-electron/project-fs.js'
 const root = path.resolve('test-results/chmcmd-debug')
 fs.rmSync(root, { recursive: true, force: true })
 fs.mkdirSync(root, { recursive: true })
+fs.mkdirSync(path.join(root, 'docs'), { recursive: true })
 fs.writeFileSync(
-  path.join(root, 'index.md'),
+  path.join(root, 'docs', 'index.md'),
   '# Test\n\n中文测试内容\n',
   'utf8',
 )
@@ -17,8 +18,9 @@ fs.writeFileSync(
     {
       title: 'Test CHM',
       language: 'zh-Hans',
-      defaultPage: 'index.md',
-      toc: [{ title: '首页', mdPath: 'index.md' }],
+      defaultPage: 'docs/index.md',
+      docsDir: 'docs',
+      toc: [{ title: '首页', mdPath: 'docs/index.md' }],
     },
     null,
     2,

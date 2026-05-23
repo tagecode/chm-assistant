@@ -8,6 +8,8 @@ export interface ProjectTocNode {
   title: string
   /** 相对项目根目录的 Markdown 路径（正斜杠） */
   mdPath?: string
+  /** 文件夹节点在磁盘上的相对路径（正斜杠） */
+  dirPath?: string
   children?: ProjectTocNode[]
 }
 
@@ -34,6 +36,8 @@ export interface ChmProjectConfig {
   createdAt: string
   updatedAt?: string
   toc: ProjectTocNode[]
+  /** Markdown 源文件目录（相对项目根），默认 docs */
+  docsDir?: string
   /** 静态资源目录（相对项目根），默认 assets */
   assetsDir?: string
   window?: ChmProjectWindowOptions

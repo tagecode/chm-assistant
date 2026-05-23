@@ -3,15 +3,7 @@ import path from 'node:path'
 
 import type { ChmProjectConfig, ProjectTocNode } from '../src/shared/project'
 import { CHMPROJ_FILENAME } from '../src/shared/project'
-
-const MD_EXT = /\.md$/i
-const IGNORE_DIRS = new Set([
-  '.git',
-  'node_modules',
-  'dist',
-  '.chm-build',
-  '.chm-assistant',
-])
+import { listProjectMarkdownFiles } from './project-docs'
 
 export function projectConfigPath(rootPath: string): string {
   return path.join(rootPath, CHMPROJ_FILENAME)
@@ -67,41 +59,15 @@ function titleFromMdPath(mdPath: string): string {
   return base.replace(/[-_]/g, ' ')
 }
 
-function scanMdFiles(rootPath: string, relDir = ''): string[] {
-  const abs = relDir ? path.join(rootPath, relDir) : rootPath
-  let entries: fs.Dirent[]
-  try {
-    entries = fs.readdirSync(abs, { withFileTypes: true })
-  } catch {
-    return []
-  }
-  const files: string[] = []
-  const dirs: string[] = []
-  for (const ent of entries) {
-    if (ent.name.startsWith('.')) {
-      continue
-    }
-    const rel = relDir ? path.posix.join(relDir, ent.name) : ent.name
-    if (ent.isDirectory()) {
-      if (!IGNORE_DIRS.has(ent.name)) {
-        dirs.push(rel)
-      }
-    } else if (ent.isFile() && MD_EXT.test(ent.name)) {
-      files.push(rel.replace(/\\/g, '/'))
-    }
-  }
-  dirs.sort((a, b) => a.localeCompare(b))
-  for (const d of dirs) {
-    files.push(...scanMdFiles(rootPath, d))
-  }
-  files.sort((a, b) => a.localeCompare(b))
-  return files
-}
-
-function nodeForFolder(title: string, children: ProjectTocNode[]): ProjectTocNode {
+function nodeForFolder(
+  title: string,
+  dirPath: string,
+  children: ProjectTocNode[],
+): ProjectTocNode {
   return {
     id: crypto.randomUUID(),
     title,
+    dirPath: dirPath.replace(/\\/g, '/'),
     children,
   }
 }
@@ -110,8 +76,11 @@ function nodeForFolder(title: string, children: ProjectTocNode[]): ProjectTocNod
 export function buildTocFromFilesystem(
   rootPath: string,
   existing?: ProjectTocNode[],
+  config?: ChmProjectConfig,
 ): ProjectTocNode[] {
-  const mdFiles = scanMdFiles(rootPath)
+  const mdFiles = config
+    ? listProjectMarkdownFiles(rootPath, config)
+    : listProjectMarkdownFiles(rootPath, { docsDir: 'docs' } as ChmProjectConfig)
   const idByMd = new Map<string, string>()
   const walkIds = (nodes: ProjectTocNode[]) => {
     for (const n of nodes) {
@@ -143,19 +112,19 @@ export function buildTocFromFilesystem(
     for (const part of parts) {
       built = built ? `${built}/${part}` : part
       if (!folderMap.has(built)) {
-        const folderNode = nodeForFolder(part, [])
+        const folderNode = nodeForFolder(part, built, [])
         folderMap.set(built, folderNode.children!)
         parentList.push(folderNode)
         parentList = folderNode.children!
       } else {
         const existingFolder = parentList.find(
-          (n) => !n.mdPath && n.title === part,
+          (n) => !n.mdPath && (n.dirPath?.replace(/\\/g, '/') === built || n.title === part),
         )
         parentList =
           existingFolder?.children ??
           folderMap.get(built) ??
           (() => {
-            const n = nodeForFolder(part, [])
+            const n = nodeForFolder(part, built, [])
             parentList.push(n)
             return n.children!
           })()

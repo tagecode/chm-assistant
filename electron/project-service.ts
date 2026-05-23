@@ -9,7 +9,6 @@ import type {
   CompileProjectResult,
   ProjectLoadError,
   ProjectLoadResult,
-  ProjectTocNode,
   TocMovePlacement,
 } from '../src/shared/project'
 import { compileProject } from './chm-build/compile-project'
@@ -29,7 +28,14 @@ import {
   saveProjectConfig,
   writeUtf8NoBom,
 } from './project-fs'
-import { deleteTocNode, moveTocNode, renameTocNode } from './project-toc'
+import { defaultIndexMdPath } from './project-docs'
+import {
+  createTocFolder,
+  createTocMarkdownPage,
+  deleteTocNode,
+  moveTocNode,
+  renameTocNode,
+} from './project-toc'
 
 export function loadProject(rootPath: string): ProjectLoadResult | ProjectLoadError {
   const config = loadProjectConfig(rootPath)
@@ -41,10 +47,10 @@ export function loadProject(rootPath: string): ProjectLoadResult | ProjectLoadEr
     }
   }
   if (config.toc.length === 0) {
-    config.toc = buildTocFromFilesystem(rootPath)
+    config.toc = buildTocFromFilesystem(rootPath, config.toc, config)
     saveProjectConfig(rootPath, config)
   }
-  const defaultMd = config.defaultPage || 'index.md'
+  const defaultMd = config.defaultPage || defaultIndexMdPath(config)
   const activeMdPath = fs.existsSync(resolveMdPath(rootPath, defaultMd))
     ? defaultMd.replace(/\\/g, '/')
     : config.toc.find((n) => n.mdPath)?.mdPath ?? null
@@ -102,34 +108,27 @@ export function writeProjectMarkdown(
 export function createMarkdownPage(
   rootPath: string,
   config: ChmProjectConfig,
-  mdRelPath: string,
   title: string,
-): { ok: true; config: ChmProjectConfig } | { ok: false; message: string } {
-  const rel = mdRelPath.replace(/\\/g, '/')
-  try {
-    const abs = resolveMdPath(rootPath, rel)
-    if (fs.existsSync(abs)) {
-      return { ok: false, message: '文件已存在' }
-    }
-    writeUtf8NoBom(abs, `# ${title}\n\n`)
-    const node: ProjectTocNode = {
-      id: crypto.randomUUID(),
-      title,
-      mdPath: rel,
-    }
-    config.toc.push(node)
-    saveProjectConfig(rootPath, config)
-    return { ok: true, config }
-  } catch (e) {
-    return { ok: false, message: e instanceof Error ? e.message : String(e) }
-  }
+  mdRelPath?: string,
+  contextNodeId?: string | null,
+): { ok: true; config: ChmProjectConfig; mdPath: string } | { ok: false; message: string } {
+  return createTocMarkdownPage(rootPath, config, title, mdRelPath, contextNodeId)
+}
+
+export function createProjectFolder(
+  rootPath: string,
+  config: ChmProjectConfig,
+  folderName: string,
+  contextNodeId?: string | null,
+): { ok: true; config: ChmProjectConfig; dirPath: string } | { ok: false; message: string } {
+  return createTocFolder(rootPath, config, folderName, contextNodeId)
 }
 
 export function refreshProjectToc(
   rootPath: string,
   config: ChmProjectConfig,
 ): ChmProjectConfig {
-  config.toc = buildTocFromFilesystem(rootPath, config.toc)
+  config.toc = buildTocFromFilesystem(rootPath, config.toc, config)
   saveProjectConfig(rootPath, config)
   return config
 }

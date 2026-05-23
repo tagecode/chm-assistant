@@ -19,6 +19,7 @@ import {
   buildMarkdownPreviewHtml,
   compileProjectWithProgress,
   createMarkdownPage,
+  createProjectFolder,
   deleteProjectTocNode,
   moveProjectTocNode,
   importProjectResources,
@@ -379,8 +380,40 @@ function registerIpcHandlers() {
     'project:create-page',
     (
       _event,
-      payload: { rootPath: string; config: ChmProjectConfig; mdPath: string; title: string },
-    ) => createMarkdownPage(payload.rootPath, payload.config, payload.mdPath, payload.title),
+      payload: {
+        rootPath: string
+        config: ChmProjectConfig
+        title: string
+        mdPath?: string
+        contextNodeId?: string | null
+      },
+    ) =>
+      createMarkdownPage(
+        payload.rootPath,
+        payload.config,
+        payload.title,
+        payload.mdPath,
+        payload.contextNodeId,
+      ),
+  )
+
+  ipcMain.handle(
+    'project:create-folder',
+    (
+      _event,
+      payload: {
+        rootPath: string
+        config: ChmProjectConfig
+        folderName: string
+        contextNodeId?: string | null
+      },
+    ) =>
+      createProjectFolder(
+        payload.rootPath,
+        payload.config,
+        payload.folderName,
+        payload.contextNodeId,
+      ),
   )
 
   ipcMain.handle(

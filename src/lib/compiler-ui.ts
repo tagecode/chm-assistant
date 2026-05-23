@@ -1,5 +1,6 @@
 import type { CompilerStatus } from '@/shared/electron'
 import type { MessageKey } from '@/i18n/zh-Hans'
+import type { AppDialogApi } from '@/components/app-dialog-provider'
 
 const STATUS_KEYS: Record<CompilerStatus['messageKey'], MessageKey> = {
   'ok.bundled': 'settings.compiler.status.okBundled',
@@ -17,15 +18,24 @@ export function compilerStatusMessageKey(status: CompilerStatus): MessageKey {
 export async function promptCompilerMissing(
   status: CompilerStatus,
   t: (key: MessageKey) => string,
+  dialog: AppDialogApi,
 ): Promise<void> {
   const api = window.electronAPI
   const msg = t(compilerStatusMessageKey(status))
   if (status.installGuideUrls?.length && api) {
-    const open = window.confirm(`${msg}\n\n${t('settings.compiler.openGuideConfirm')}`)
+    const open = await dialog.showConfirm({
+      titleKey: 'settings.compiler.missingTitle',
+      descriptionKey: 'settings.compiler.openGuideConfirm',
+      detail: msg,
+      confirmLabelKey: 'settings.compiler.openGuide',
+    })
     if (open) {
       await api.openExternalUrl(status.installGuideUrls[0]!)
     }
     return
   }
-  window.alert(msg)
+  await dialog.showAlert({
+    titleKey: 'settings.compiler.missingTitle',
+    detail: msg,
+  })
 }

@@ -15,6 +15,7 @@ import {
 } from '@/components/composer/composer-editor'
 import { MarkdownPreviewPane } from '@/components/composer/markdown-preview-pane'
 import { ProjectTree } from '@/components/composer/project-tree'
+import { useAppDialog } from '@/components/app-dialog-provider'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -70,6 +71,7 @@ export function ComposerView({
   onRegisterTabHandle,
 }: ComposerViewProps) {
   const { t } = useI18n()
+  const dialog = useAppDialog()
   const editorRef = useRef<ComposerEditorHandle>(null)
   const pendingRevealLine = useRef<number | null>(null)
 
@@ -88,7 +90,10 @@ export function ComposerView({
   const [metaOpen, setMetaOpen] = useState(false)
   const [newPageOpen, setNewPageOpen] = useState(false)
   const [newPageTitle, setNewPageTitle] = useState('')
-  const [newPagePath, setNewPagePath] = useState('page.md')
+  const [newPagePath, setNewPagePath] = useState('docs/page.md')
+  const [newFolderOpen, setNewFolderOpen] = useState(false)
+  const [newFolderName, setNewFolderName] = useState('')
+  const [createContextNodeId, setCreateContextNodeId] = useState<string | null>(null)
   const [lastImportSnippets, setLastImportSnippets] = useState<string | null>(null)
   const [renameOpen, setRenameOpen] = useState(false)
   const [renameNode, setRenameNode] = useState<ProjectTocNode | null>(null)
@@ -186,13 +191,13 @@ export function ComposerView({
     const res = await api.writeProjectMarkdown(rootPath, activeMdPath, content)
     setSaving(false)
     if (!res.ok) {
-      window.alert(res.message ?? t('composer.error.saveFailed'))
+      await dialog.showError(res.message ?? t('composer.error.saveFailed'))
       return false
     }
     setEditorValue(content)
     setDirty(false)
     return true
-  }, [activeMdPath, editorValue, rootPath, t])
+  }, [activeMdPath, dialog, editorValue, rootPath, t])
 
   const handleEditorSave = useCallback(() => {
     if (activeMdPath && !saving) {
@@ -257,14 +262,14 @@ export function ComposerView({
     if (picked.length === 0) return
     const res = await api.importProjectResources(rootPath, config, picked)
     if (!res.ok) {
-      window.alert(res.message)
+      await dialog.showError(res.message)
       return
     }
     const snippet = res.markdownSnippets.join('\n')
     setLastImportSnippets(snippet)
     editorRef.current?.insertAtCursor(`\n${snippet}\n`)
     setDirty(true)
-  }, [config, rootPath])
+  }, [config, dialog, rootPath])
 
   const handleRefreshToc = useCallback(async () => {
     const api = window.electronAPI
@@ -282,9 +287,16 @@ export function ComposerView({
       const saved = await saveCurrent()
       if (!saved) return
     }
+    if (!firstMdInToc(config.toc)) {
+      await dialog.showAlert({
+        titleKey: 'composer.compile.emptyTitle',
+        descriptionKey: 'composer.compile.empty',
+      })
+      return
+    }
     const compilerStatus = await api.getCompilerStatus()
     if (!compilerStatus.available) {
-      await promptCompilerMissing(compilerStatus, t)
+      await promptCompilerMissing(compilerStatus, t, dialog)
       return
     }
     setCompiling(true)
@@ -297,28 +309,33 @@ export function ComposerView({
     }
     if (!result.ok) {
       if (result.error === 'COMPILER_NOT_FOUND') {
-        await promptCompilerMissing(await api.getCompilerStatus(), t)
+        await promptCompilerMissing(await api.getCompilerStatus(), t, dialog)
+      } else if (result.error.includes('没有可编译')) {
+        await dialog.showAlert({
+          titleKey: 'composer.compile.emptyTitle',
+          descriptionKey: 'composer.compile.empty',
+        })
       } else {
-        window.alert(result.error)
+        await dialog.showError(result.error)
       }
       return
     }
     if (config.compile?.openAfterCompile !== false) {
       onOpenChm(result.chmPath)
     }
-  }, [config, dirty, onOpenChm, rootPath, saveCurrent, t])
+  }, [config, dialog, dirty, onOpenChm, rootPath, saveCurrent, t])
 
   const handleSaveMeta = useCallback(async () => {
     const api = window.electronAPI
     if (!api || !config) return
     const res = await api.saveProjectConfig(rootPath, config)
     if (!res.ok) {
-      window.alert(res.message ?? t('composer.error.saveFailed'))
+      await dialog.showError(res.message ?? t('composer.error.saveFailed'))
       return
     }
     onTabTitleChange?.(tab.id, config.title)
     setMetaOpen(false)
-  }, [config, onTabTitleChange, rootPath, tab.id, t])
+  }, [config, dialog, onTabTitleChange, rootPath, tab.id, t])
 
   const openRenameDialog = useCallback((node: ProjectTocNode) => {
     setRenameNode(node)
@@ -338,7 +355,7 @@ export function ComposerView({
       renameNode.mdPath ? renameMdPath : undefined,
     )
     if (!res.ok) {
-      window.alert(res.message)
+      await dialog.showError(res.message)
       return
     }
     const oldPath = activeMdPath
@@ -349,18 +366,15 @@ export function ComposerView({
     } else if (oldPath) {
       setActiveMdPath(oldPath)
     }
-  }, [activeMdPath, config, renameMdPath, renameNode, renameTitle, rootPath])
+  }, [activeMdPath, config, dialog, renameMdPath, renameNode, renameTitle, rootPath])
 
   const handleDeleteNode = useCallback(
     async (node: ProjectTocNode) => {
       const api = window.electronAPI
       if (!api || !config) return
-      if (!window.confirm(`${t('composer.tree.confirmDelete')}\n${node.title}`)) {
-        return
-      }
       const res = await api.deleteProjectTocNode(rootPath, config, node.id)
       if (!res.ok) {
-        window.alert(res.message)
+        await dialog.showError(res.message)
         return
       }
       setConfig(res.config)
@@ -374,7 +388,23 @@ export function ComposerView({
         }
       }
     },
-    [activeMdPath, config, rootPath, t],
+    [activeMdPath, config, dialog, rootPath],
+  )
+
+  const promptDeleteNode = useCallback(
+    async (node: ProjectTocNode) => {
+      const ok = await dialog.showConfirm({
+        titleKey: 'composer.tree.confirmDeleteTitle',
+        descriptionKey: 'composer.tree.confirmDelete',
+        confirmLabelKey: 'composer.tree.confirmDeleteAction',
+        detail: node.title,
+        destructive: true,
+      })
+      if (ok) {
+        await handleDeleteNode(node)
+      }
+    },
+    [dialog, handleDeleteNode],
   )
 
   const handleMoveNode = useCallback(
@@ -383,13 +413,39 @@ export function ComposerView({
       if (!api || !config) return
       const res = await api.moveProjectTocNode(rootPath, config, nodeId, placement)
       if (!res.ok) {
-        window.alert(res.message)
+        await dialog.showError(res.message)
         return
       }
       setConfig(res.config)
     },
-    [config, rootPath],
+    [config, dialog, rootPath],
   )
+
+  const docsDir = config?.docsDir?.replace(/\\/g, '/') || 'docs'
+
+  const openNewPageDialog = useCallback(
+    (contextNode: ProjectTocNode | null) => {
+      setCreateContextNodeId(contextNode?.id ?? null)
+      setNewPageTitle('')
+      let baseDir = docsDir
+      if (contextNode?.dirPath) {
+        baseDir = contextNode.dirPath.replace(/\\/g, '/')
+      } else if (contextNode?.mdPath) {
+        const normalized = contextNode.mdPath.replace(/\\/g, '/')
+        const slash = normalized.lastIndexOf('/')
+        baseDir = slash >= 0 ? normalized.slice(0, slash) : docsDir
+      }
+      setNewPagePath(`${baseDir}/page.md`)
+      setNewPageOpen(true)
+    },
+    [docsDir],
+  )
+
+  const openNewFolderDialog = useCallback((contextNode: ProjectTocNode | null) => {
+    setCreateContextNodeId(contextNode?.id ?? null)
+    setNewFolderName('')
+    setNewFolderOpen(true)
+  }, [])
 
   const handleCreatePage = useCallback(async () => {
     const api = window.electronAPI
@@ -397,20 +453,50 @@ export function ComposerView({
     const title = newPageTitle.trim() || t('composer.newPage.defaultTitle')
     const mdPath = newPagePath.trim().replace(/\\/g, '/')
     if (!/\.md$/i.test(mdPath)) {
-      window.alert(t('composer.newPage.pathHint'))
+      await dialog.showAlert({
+        titleKey: 'dialog.noticeTitle',
+        descriptionKey: 'composer.newPage.pathHint',
+      })
       return
     }
-    const res = await api.createProjectPage(rootPath, config, mdPath, title)
+    const res = await api.createProjectPage(
+      rootPath,
+      config,
+      title,
+      mdPath,
+      createContextNodeId,
+    )
     if (!res.ok) {
-      window.alert(res.message)
+      await dialog.showError(res.message)
       return
     }
     setConfig(res.config)
     setNewPageOpen(false)
     setNewPageTitle('')
-    setNewPagePath('page.md')
-    setActiveMdPath(mdPath)
-  }, [config, newPagePath, newPageTitle, rootPath, t])
+    setNewPagePath(`${docsDir}/page.md`)
+    setCreateContextNodeId(null)
+    setActiveMdPath(res.mdPath)
+  }, [config, createContextNodeId, dialog, docsDir, newPagePath, newPageTitle, rootPath, t])
+
+  const handleCreateFolder = useCallback(async () => {
+    const api = window.electronAPI
+    if (!api || !config) return
+    const name = newFolderName.trim() || t('composer.newFolder.defaultName')
+    const res = await api.createProjectFolder(
+      rootPath,
+      config,
+      name,
+      createContextNodeId,
+    )
+    if (!res.ok) {
+      await dialog.showError(res.message)
+      return
+    }
+    setConfig(res.config)
+    setNewFolderOpen(false)
+    setNewFolderName('')
+    setCreateContextNodeId(null)
+  }, [config, createContextNodeId, dialog, newFolderName, rootPath, t])
 
   if (loadError) {
     return (
@@ -438,7 +524,7 @@ export function ComposerView({
           </span>
         ) : null}
         <div className="ml-auto flex flex-wrap gap-1">
-          <Button variant="outline" size="sm" onClick={() => setNewPageOpen(true)}>
+          <Button variant="outline" size="sm" onClick={() => openNewPageDialog(null)}>
             <FilePlus className="mr-1 size-3.5" />
             {t('composer.newPage')}
           </Button>
@@ -485,7 +571,7 @@ export function ComposerView({
       ) : null}
 
       <div className="flex min-h-0 flex-1">
-        <aside className="flex w-56 shrink-0 flex-col border-r border-border/60">
+        <aside className="flex min-h-0 w-56 shrink-0 flex-col border-r border-border/60">
           <p className="border-b border-border/40 px-3 py-2 text-xs font-medium text-muted-foreground">
             {t('composer.files')}
           </p>
@@ -494,8 +580,14 @@ export function ComposerView({
             activeMdPath={activeMdPath}
             onSelect={(p) => void selectMd(p)}
             onRename={openRenameDialog}
-            onDelete={(n) => void handleDeleteNode(n)}
+            onDelete={(n) => void promptDeleteNode(n)}
             onMove={(nodeId, placement) => void handleMoveNode(nodeId, placement)}
+            onNewPage={(ctx) => openNewPageDialog(ctx)}
+            onNewFolder={(ctx) => openNewFolderDialog(ctx)}
+            contextMenuLabels={{
+              newPage: t('composer.tree.newPage'),
+              newFolder: t('composer.tree.newFolder'),
+            }}
           />
         </aside>
 
@@ -710,6 +802,26 @@ export function ComposerView({
         </DialogContent>
       </Dialog>
 
+      <Dialog open={newFolderOpen} onOpenChange={setNewFolderOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('composer.newFolder')}</DialogTitle>
+            <DialogDescription>{t('composer.newFolder.hint')}</DialogDescription>
+          </DialogHeader>
+          <Input
+            placeholder={t('composer.newFolder.namePlaceholder')}
+            value={newFolderName}
+            onChange={(e) => setNewFolderName(e.target.value)}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNewFolderOpen(false)}>
+              {t('project.cancel')}
+            </Button>
+            <Button onClick={() => void handleCreateFolder()}>{t('project.create')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={newPageOpen} onOpenChange={setNewPageOpen}>
         <DialogContent>
           <DialogHeader>
@@ -723,7 +835,7 @@ export function ComposerView({
               onChange={(e) => setNewPageTitle(e.target.value)}
             />
             <Input
-              placeholder="page.md"
+              placeholder={`${docsDir}/page.md`}
               value={newPagePath}
               onChange={(e) => setNewPagePath(e.target.value)}
             />

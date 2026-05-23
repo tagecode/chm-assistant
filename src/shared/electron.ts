@@ -170,10 +170,20 @@ export interface ElectronApi {
   createProjectPage: (
     rootPath: string,
     config: ChmProjectConfig,
-    mdPath: string,
     title: string,
+    mdPath?: string,
+    contextNodeId?: string | null,
   ) => Promise<
-    | { ok: true; config: ChmProjectConfig }
+    | { ok: true; config: ChmProjectConfig; mdPath: string }
+    | { ok: false; message: string }
+  >
+  createProjectFolder: (
+    rootPath: string,
+    config: ChmProjectConfig,
+    folderName: string,
+    contextNodeId?: string | null,
+  ) => Promise<
+    | { ok: true; config: ChmProjectConfig; dirPath: string }
     | { ok: false; message: string }
   >
   refreshProjectToc: (

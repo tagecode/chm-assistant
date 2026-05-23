@@ -133,7 +133,8 @@ export function runStaticChecks() {
   const tempProj = path.join(ROOT, 'test-results/_acceptance-scratch/project-utf8')
   try {
     fs.mkdirSync(tempProj, { recursive: true })
-    const indexMd = path.join(tempProj, 'index.md')
+    fs.mkdirSync(path.join(tempProj, 'docs'), { recursive: true })
+    const indexMd = path.join(tempProj, 'docs', 'index.md')
     const proj = path.join(tempProj, 'chm-assistant.chmproj')
     const content = '# 验收样例\n\n中文正文：帮助文档。\n'
     fs.writeFileSync(indexMd, content, { encoding: 'utf8' })
@@ -145,9 +146,10 @@ export function runStaticChecks() {
           title: '验收 UTF-8',
           language: 'zh-Hans',
           charset: 'utf-8',
-          defaultPage: 'index.md',
+          defaultPage: 'docs/index.md',
+          docsDir: 'docs',
           createdAt: new Date().toISOString(),
-          toc: [{ id: '1', title: '首页', mdPath: 'index.md' }],
+          toc: [{ id: '1', title: '首页', mdPath: 'docs/index.md' }],
         },
         null,
         2,

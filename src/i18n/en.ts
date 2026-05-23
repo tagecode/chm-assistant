@@ -72,6 +72,9 @@ export const en: Record<MessageKey, string> = {
   'composer.save': 'Save',
   'composer.compile': 'Build CHM',
   'composer.compiling': 'Building…',
+  'composer.compile.emptyTitle': 'Cannot build',
+  'composer.compile.empty':
+    'This project has no Markdown pages to compile. Create a page or sync the table of contents first.',
   'composer.unsaved': 'Unsaved',
   'composer.metadata': 'Project properties',
   'composer.metadataHint': 'Title, author, language, and compile options are stored in chm-assistant.chmproj.',
@@ -80,6 +83,10 @@ export const en: Record<MessageKey, string> = {
   'composer.newPage.hint': 'Display title and relative path (must end with .md).',
   'composer.newPage.pathHint': 'Path must end with .md, e.g. docs/intro.md',
   'composer.newPage.defaultTitle': 'New page',
+  'composer.newFolder': 'New folder',
+  'composer.newFolder.hint': 'Create a subfolder at the current location (keep Markdown under docs/).',
+  'composer.newFolder.namePlaceholder': 'Folder name',
+  'composer.newFolder.defaultName': 'New folder',
   'composer.pickFile': 'Select or create a Markdown page on the left',
   'composer.compileLog': 'Build log',
   'composer.compileLogEmpty': 'No log entries yet',
@@ -103,6 +110,10 @@ export const en: Record<MessageKey, string> = {
     'Change the sidebar title; for pages you can also change the relative .md path.',
   'composer.tree.confirmDelete':
     'Delete this node? Associated Markdown files will be removed from disk.',
+  'composer.tree.confirmDeleteTitle': 'Delete',
+  'composer.tree.confirmDeleteAction': 'Delete',
+  'composer.tree.newPage': 'New Markdown',
+  'composer.tree.newFolder': 'New folder',
   'composer.meta.assetsDir': 'Assets folder',
   'composer.projectPath': 'Project path',
   'settings.title': 'Settings',
@@ -134,6 +145,7 @@ export const en: Record<MessageKey, string> = {
   'settings.compiler.openGuideBackup': 'Mirror download',
   'settings.compiler.openGuideConfirm':
     'Download the HTML Help Workshop installer (htmlhelp.exe) in your browser?',
+  'settings.compiler.missingTitle': 'Compiler not found',
   'settings.compiler.status.okBundled': 'Ready: using bundled chmcmd',
   'settings.compiler.status.okSystem': 'Ready: using system compiler',
   'settings.compiler.status.okSettings': 'Ready: using your custom compiler path',
@@ -158,4 +170,7 @@ export const en: Record<MessageKey, string> = {
   'reader.copyDone': 'Copied to clipboard',
   'reader.copyFailed': 'Copy failed',
   'common.back': 'Back',
+  'dialog.noticeTitle': 'Notice',
+  'dialog.errorTitle': 'Error',
+  'dialog.ok': 'OK',
 }
