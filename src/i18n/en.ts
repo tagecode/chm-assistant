@@ -57,6 +57,7 @@ export const en: Record<MessageKey, string> = {
   'reader.findNext': 'Next',
   'reader.searchPlaceholder': 'Search full text…',
   'reader.searchGo': 'Search',
+  'reader.searchScanning': 'Searching the manual…',
   'reader.searchEmpty': 'No matches',
   'reader.zoom.in': 'Zoom in',
   'reader.zoom.out': 'Zoom out',

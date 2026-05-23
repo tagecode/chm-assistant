@@ -195,7 +195,9 @@ function SearchPanel({
         searchBusy={searchBusy}
         runFullSearch={runFullSearch}
       />
-      {searchHits.length === 0 ? (
+      {searchBusy ? (
+        <p className="text-xs text-muted-foreground">{t('reader.searchScanning')}</p>
+      ) : searchHits.length === 0 ? (
         <p className="text-xs text-muted-foreground">{t('reader.searchEmpty')}</p>
       ) : (
         <ul className="space-y-2">
@@ -250,7 +252,7 @@ function SearchQueryForm({
         disabled={searchBusy}
         onClick={() => void runFullSearch()}
       >
-        {searchBusy ? '…' : t('reader.searchGo')}
+        {searchBusy ? t('reader.searchScanning') : t('reader.searchGo')}
       </Button>
     </div>
   )
@@ -284,6 +286,7 @@ export function ReaderView({
   const [searchBusy, setSearchBusy] = useState(false)
   const [searchHits, setSearchHits] = useState<ChmSearchHit[]>([])
   const [pendingFind, setPendingFind] = useState<string | null>(null)
+  const searchSeqRef = useRef(0)
   const [pageLoading, setPageLoading] = useState(true)
   const initialPageReadyRef = useRef(false)
 
@@ -423,13 +426,25 @@ export function ReaderView({
       setSearchHits([])
       return
     }
+    const seq = ++searchSeqRef.current
     setSearchBusy(true)
+    setSearchHits([])
     try {
-      setSearchHits(await window.electronAPI.searchChmSession(tab.sessionId, q))
+      const hits = await window.electronAPI.searchChmSession(tab.sessionId, q)
+      if (seq !== searchSeqRef.current) return
+      setSearchHits(hits)
     } finally {
-      setSearchBusy(false)
+      if (seq === searchSeqRef.current) {
+        setSearchBusy(false)
+      }
     }
   }, [searchQuery, tab.sessionId])
+
+  useEffect(() => {
+    searchSeqRef.current += 1
+    setSearchBusy(false)
+    setSearchHits([])
+  }, [tab.sessionId])
 
   const openSearchHit = useCallback(
     (hit: ChmSearchHit) => {

@@ -12,7 +12,7 @@ import {
   openChmSession,
   readChmPagePlainText,
 } from './chm-reader-service'
-import { searchChmSession } from './chm-search'
+import { searchChmSessionAsync } from './chm-search'
 import { getCompilerStatus } from './compiler-resolve'
 import { createProjectInDirectory } from './project-bootstrap'
 import {
@@ -74,6 +74,7 @@ const settingsStore = new Store<PersistedState>({
 })
 
 let mainWindow: BrowserWindow | null = null
+const chmSearchAbortBySession = new Map<string, AbortController>()
 
 function pushRecent(entry: Omit<RecentEntry, 'openedAt'>): RecentEntry[] {
   const recent = [...settingsStore.get('recent')]
@@ -308,12 +309,25 @@ function registerIpcHandlers() {
   )
 
   ipcMain.handle('chm:close-session', (_event, sessionId: string) => {
+    chmSearchAbortBySession.get(sessionId)?.abort()
+    chmSearchAbortBySession.delete(sessionId)
     closeChmSession(sessionId)
   })
 
-  ipcMain.handle('chm:search', (_event, sessionId: string, query: string) =>
-    searchChmSession(sessionId, query, settingsStore.get('readerEncoding')),
-  )
+  ipcMain.handle('chm:search', async (_event, sessionId: string, query: string) => {
+    chmSearchAbortBySession.get(sessionId)?.abort()
+    const ac = new AbortController()
+    chmSearchAbortBySession.set(sessionId, ac)
+    try {
+      return await searchChmSessionAsync(sessionId, query, settingsStore.get('readerEncoding'), {
+        signal: ac.signal,
+      })
+    } finally {
+      if (chmSearchAbortBySession.get(sessionId) === ac) {
+        chmSearchAbortBySession.delete(sessionId)
+      }
+    }
+  })
 
   ipcMain.handle(
     'chm:plain-text',

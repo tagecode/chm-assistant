@@ -57,6 +57,7 @@ export const zhHant: Record<MessageKey, string> = {
   'reader.findNext': '下一處',
   'reader.searchPlaceholder': '全文搜尋…',
   'reader.searchGo': '搜尋',
+  'reader.searchScanning': '正在搜尋全書，請稍候…',
   'reader.searchEmpty': '無符合結果',
   'reader.zoom.in': '放大',
   'reader.zoom.out': '縮小',

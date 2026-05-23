@@ -1,5 +1,3 @@
-import { parse } from 'node-html-parser'
-
 import type { ChmSearchHit } from '../src/shared/electron'
 import { getChmAddon } from './chm-native'
 import { normalizeChmInternalPath } from './chm-path'
@@ -7,14 +5,26 @@ import { decodeChmText } from './chm-text'
 import { getSessionRecord } from './chm-reader-service'
 
 const HTML_PAGE = /\.(htm|html)$/i
+/** 每批扫描页数，批间让出事件循环，避免阻塞 UI */
+const SCAN_BATCH_SIZE = 12
 
-function stripHtmlToText(html: string): string {
-  try {
-    const root = parse(html, { lowerCaseTagName: true })
-    return root.structuredText.replace(/\s+/g, ' ').trim()
-  } catch {
-    return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
-  }
+function yieldToEventLoop(): Promise<void> {
+  return new Promise((resolve) => {
+    setImmediate(resolve)
+  })
+}
+
+/** 全文检索用轻量 HTML 去标签（比 DOM 解析快 orders of magnitude） */
+function fastHtmlToSearchText(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&#?\w+;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 function makeSnippet(text: string, query: string, radius = 60): string {
@@ -41,7 +51,36 @@ function titleFromPath(internalPath: string): string {
   return base.replace(/\.(htm|html)$/i, '')
 }
 
-/** 在已打开会话的 HTML 页面中流式全文检索（首版：线性扫描 + 解码一致）。 */
+function scanPage(
+  sessionId: string,
+  rawPath: string,
+  q: string,
+  qLower: string,
+  readerEncodingPref: string,
+  pageTitles: Map<string, string>,
+): ChmSearchHit | null {
+  const addon = getChmAddon()
+  if (!addon) {
+    return null
+  }
+  const internal = normalizeChmInternalPath(rawPath)
+  const buf = addon.readObject(sessionId, internal)
+  if (!buf.ok || !buf.data) {
+    return null
+  }
+  const html = decodeChmText(buf.data, readerEncodingPref, true)
+  const text = fastHtmlToSearchText(html)
+  if (!text.toLowerCase().includes(qLower)) {
+    return null
+  }
+  return {
+    path: internal,
+    title: pageTitles.get(internal) ?? titleFromPath(internal),
+    snippet: makeSnippet(text, q),
+  }
+}
+
+/** 同步全文检索（测试/脚本用；大 CHM 请用 async 版本） */
 export function searchChmSession(
   sessionId: string,
   query: string,
@@ -53,8 +92,7 @@ export function searchChmSession(
     return []
   }
   const rec = getSessionRecord(sessionId)
-  const addon = getChmAddon()
-  if (!rec || !addon) {
+  if (!rec || !getChmAddon()) {
     return []
   }
 
@@ -66,21 +104,64 @@ export function searchChmSession(
     if (hits.length >= maxResults) {
       break
     }
-    const internal = normalizeChmInternalPath(rawPath)
-    const buf = addon.readObject(sessionId, internal)
-    if (!buf.ok || !buf.data) {
-      continue
+    const hit = scanPage(sessionId, rawPath, q, qLower, readerEncodingPref, rec.pageTitles)
+    if (hit) {
+      hits.push(hit)
     }
-    const html = decodeChmText(buf.data, readerEncodingPref, true)
-    const text = stripHtmlToText(html)
-    if (!text.toLowerCase().includes(qLower)) {
-      continue
+  }
+
+  return hits
+}
+
+export type SearchChmSessionOptions = {
+  signal?: AbortSignal
+  maxResults?: number
+}
+
+/** 异步分批全文检索，不阻塞 Electron 主进程事件循环 */
+export async function searchChmSessionAsync(
+  sessionId: string,
+  query: string,
+  readerEncodingPref: string,
+  options: SearchChmSessionOptions = {},
+): Promise<ChmSearchHit[]> {
+  const q = query.trim()
+  if (!q) {
+    return []
+  }
+  const rec = getSessionRecord(sessionId)
+  if (!rec || !getChmAddon()) {
+    return []
+  }
+
+  const maxResults = options.maxResults ?? 80
+  const qLower = q.toLowerCase()
+  const hits: ChmSearchHit[] = []
+  const htmlPaths = rec.paths.filter((p) => HTML_PAGE.test(p))
+
+  for (let i = 0; i < htmlPaths.length; i++) {
+    if (options.signal?.aborted) {
+      break
     }
-    hits.push({
-      path: internal,
-      title: rec.pageTitles.get(internal) ?? titleFromPath(internal),
-      snippet: makeSnippet(text, q),
-    })
+    if (hits.length >= maxResults) {
+      break
+    }
+
+    const hit = scanPage(
+      sessionId,
+      htmlPaths[i],
+      q,
+      qLower,
+      readerEncodingPref,
+      rec.pageTitles,
+    )
+    if (hit) {
+      hits.push(hit)
+    }
+
+    if (i > 0 && i % SCAN_BATCH_SIZE === 0) {
+      await yieldToEventLoop()
+    }
   }
 
   return hits

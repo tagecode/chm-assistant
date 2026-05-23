@@ -54,6 +54,7 @@ export const zhHans = {
   'reader.findNext': '下一处',
   'reader.searchPlaceholder': '全文搜索…',
   'reader.searchGo': '搜索',
+  'reader.searchScanning': '正在搜索全书，请稍候…',
   'reader.searchEmpty': '无匹配结果',
   'reader.zoom.in': '放大',
   'reader.zoom.out': '缩小',
