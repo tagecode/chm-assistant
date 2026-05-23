@@ -19,20 +19,12 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { useI18n } from '@/i18n/i18n-context'
-import type { ChmOpenErrorCode, RecentEntry } from '@/shared/electron'
-import type { MessageKey } from '@/i18n/zh-Hans'
+import type { RecentEntry } from '@/shared/electron'
 import type { WorkspaceTab } from '@/types/workspace'
-
-const CHM_OPEN_ERR: Record<ChmOpenErrorCode, MessageKey> = {
-  NATIVE_MISSING: 'reader.error.nativeMissing',
-  FS_INVALID: 'reader.error.fsInvalid',
-  OPEN_FAILED: 'reader.error.openFailed',
-  ENUM_FAILED: 'reader.error.enumFailed',
-}
 
 interface HomeViewProps {
   recents: RecentEntry[]
-  onOpenReaderTab: (tab: WorkspaceTab) => void
+  onOpenChmByPath: (filePath: string) => Promise<void>
   onOpenProjectTab: (tab: WorkspaceTab) => void
   onClearRecent: () => void
   onRefreshRecent: () => void
@@ -40,7 +32,7 @@ interface HomeViewProps {
 
 export function HomeView({
   recents,
-  onOpenReaderTab,
+  onOpenChmByPath,
   onOpenProjectTab,
   onClearRecent,
   onRefreshRecent,
@@ -51,50 +43,22 @@ export function HomeView({
   const [projectTitle, setProjectTitle] = useState('')
   const [createError, setCreateError] = useState<string | null>(null)
 
-  const openChmPath = useCallback(
-    async (filePath: string) => {
-      const api = window.electronAPI
-      if (!api) return
-      const opened = await api.openChmSession(filePath)
-      if (!opened.ok) {
-        window.alert(t(CHM_OPEN_ERR[opened.code]))
-        return
-      }
-      await api.addRecent({ type: 'chm', path: opened.path })
-      onRefreshRecent()
-      const title = opened.chmTitle || opened.path.split(/[/\\]/).pop() || 'CHM'
-      onOpenReaderTab({
-        id: crypto.randomUUID(),
-        kind: 'reader',
-        title,
-        path: opened.path,
-        chmTitle: opened.chmTitle,
-        sessionId: opened.sessionId,
-        entryInternalPath: opened.entryInternalPath,
-        entryFragment: opened.entryFragment,
-        toc: opened.toc,
-        index: opened.index,
-      })
-    },
-    [onOpenReaderTab, onRefreshRecent, t],
-  )
-
   useEffect(() => {
     const onMenuOpen = (e: Event) => {
       const path = (e as CustomEvent<string>).detail
-      if (path) void openChmPath(path)
+      if (path) void onOpenChmByPath(path)
     }
     document.addEventListener('chm-assistant:open-chm-path', onMenuOpen)
     return () => document.removeEventListener('chm-assistant:open-chm-path', onMenuOpen)
-  }, [openChmPath])
+  }, [onOpenChmByPath])
 
   const handleOpenChm = useCallback(async () => {
     const api = window.electronAPI
     if (!api) return
     const picked = await api.openChmDialog()
     if (!picked) return
-    await openChmPath(picked)
-  }, [openChmPath])
+    await onOpenChmByPath(picked)
+  }, [onOpenChmByPath])
 
   const handleDrop = useCallback(
     async (e: DragEvent) => {
@@ -104,10 +68,10 @@ export function HomeView({
       const paths = await api.getPathsForFileList([...e.dataTransfer.files])
       const chm = paths.find((p) => p.toLowerCase().endsWith('.chm'))
       if (chm) {
-        await openChmPath(chm)
+        await onOpenChmByPath(chm)
       }
     },
-    [openChmPath],
+    [onOpenChmByPath],
   )
 
   const startNewProject = useCallback(async () => {
@@ -146,7 +110,7 @@ export function HomeView({
       const api = window.electronAPI
       if (!api) return
       if (item.type === 'chm') {
-        await openChmPath(item.path)
+        await onOpenChmByPath(item.path)
         return
       }
       const title = item.path.split(/[/\\]/).pop() ?? 'Project'
@@ -157,7 +121,7 @@ export function HomeView({
         path: item.path,
       })
     },
-    [openChmPath, onOpenProjectTab],
+    [onOpenChmByPath, onOpenProjectTab],
   )
 
   const openExistingProject = useCallback(async () => {

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { BookOpen, FolderKanban } from 'lucide-react'
 import type {
   AppMetadata,
   ChmOpenErrorCode,
@@ -12,6 +13,11 @@ import type { ReaderUiState, WorkspaceTab } from '@/types/workspace'
 import { I18nProvider, useI18n } from '@/i18n/i18n-context'
 import { applyTheme } from '@/lib/theme'
 import { buildWorkspaceSession } from '@/lib/reader-persist'
+import {
+  dedupeWorkspaceTabs,
+  findTabByPath,
+  formatWorkspaceTabLabel,
+} from '@/lib/workspace-tabs'
 import { Button } from '@/components/ui/button'
 import { HomeView } from '@/views/home-view'
 import { ReaderView } from '@/views/reader-view'
@@ -84,8 +90,13 @@ function AppInner() {
   const [bootstrapped, setBootstrapped] = useState(false)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const composerHandles = useRef<Map<string, ComposerTabHandle>>(new Map())
+  const tabsRef = useRef<WorkspaceTab[]>([])
 
   const activeTab = tabs.find((x) => x.id === activeTabId) ?? null
+
+  useEffect(() => {
+    tabsRef.current = tabs
+  }, [tabs])
 
   const persistWorkspace = useCallback(
     (nextScreen: typeof screen, nextTabs: WorkspaceTab[], nextActiveId: string | null) => {
@@ -129,11 +140,15 @@ function AppInner() {
           if (tab) restored.push(tab)
         }
         if (restored.length > 0) {
-          setTabs(restored)
+          const platform = m.platform
+          const deduped = dedupeWorkspaceTabs(restored, platform, (sessionId) => {
+            void api.closeChmSession(sessionId)
+          })
+          setTabs(deduped)
           const aid =
-            ws.activeTabId && restored.some((x) => x.id === ws.activeTabId)
+            ws.activeTabId && deduped.some((x) => x.id === ws.activeTabId)
               ? ws.activeTabId
-              : restored[restored.length - 1]?.id ?? null
+              : deduped[deduped.length - 1]?.id ?? null
           setActiveTabId(aid)
           setScreen(ws.screen === 'workspace' ? 'workspace' : 'home')
         }
@@ -174,22 +189,55 @@ function AppInner() {
     setRecents(await api.getRecent())
   }, [])
 
-  const openReaderTab = useCallback((tab: WorkspaceTab) => {
-    setTabs((prev) => [...prev.filter((x) => x.id !== tab.id), tab])
-    setActiveTabId(tab.id)
-    setScreen('workspace')
-  }, [])
+  const activateOrOpenTab = useCallback(
+    (tab: WorkspaceTab) => {
+      const platform = metadata.platform
+      setTabs((prev) => {
+        const existing = findTabByPath(prev, tab.kind, tab.path, platform)
+        if (existing) {
+          if (
+            tab.kind === 'reader' &&
+            existing.kind === 'reader' &&
+            tab.sessionId !== existing.sessionId
+          ) {
+            void window.electronAPI?.closeChmSession(tab.sessionId)
+          }
+          setActiveTabId(existing.id)
+          return prev
+        }
+        setActiveTabId(tab.id)
+        return [...prev, tab]
+      })
+      setScreen('workspace')
+    },
+    [metadata.platform],
+  )
 
-  const openProjectTab = useCallback((tab: WorkspaceTab) => {
-    setTabs((prev) => [...prev.filter((x) => x.id !== tab.id), tab])
-    setActiveTabId(tab.id)
-    setScreen('workspace')
-  }, [])
+  const openReaderTab = useCallback(
+    (tab: WorkspaceTab) => {
+      activateOrOpenTab(tab)
+    },
+    [activateOrOpenTab],
+  )
+
+  const openProjectTab = useCallback(
+    (tab: WorkspaceTab) => {
+      activateOrOpenTab(tab)
+    },
+    [activateOrOpenTab],
+  )
 
   const openChmFromPath = useCallback(
     async (filePath: string) => {
       const api = window.electronAPI
       if (!api) return
+      const platform = metadata.platform
+      const existing = findTabByPath(tabsRef.current, 'reader', filePath, platform)
+      if (existing) {
+        setActiveTabId(existing.id)
+        setScreen('workspace')
+        return
+      }
       const opened = await api.openChmSession(filePath)
       if (!opened.ok) {
         window.alert(t(CHM_OPEN_ERR[opened.code]))
@@ -197,11 +245,10 @@ function AppInner() {
       }
       await api.addRecent({ type: 'chm', path: opened.path })
       await refreshRecent()
-      const title = opened.chmTitle || opened.path.split(/[/\\]/).pop() || 'CHM'
       openReaderTab({
         id: crypto.randomUUID(),
         kind: 'reader',
-        title,
+        title: opened.path.split(/[/\\]/).pop() || 'file.chm',
         path: opened.path,
         chmTitle: opened.chmTitle,
         sessionId: opened.sessionId,
@@ -211,7 +258,7 @@ function AppInner() {
         index: opened.index,
       })
     },
-    [openReaderTab, refreshRecent, t],
+    [metadata.platform, openReaderTab, refreshRecent, t],
   )
 
   const handleProjectTabTitle = useCallback((tabId: string, title: string) => {
@@ -319,12 +366,16 @@ function AppInner() {
         </Button>
         {screen === 'workspace' && tabs.length > 0 ? (
           <div className="ml-2 flex min-w-0 flex-1 gap-1 overflow-x-auto">
-            {tabs.map((tab) => (
+            {tabs.map((tab) => {
+              const TabIcon = tab.kind === 'reader' ? BookOpen : FolderKanban
+              const label = formatWorkspaceTabLabel(tab)
+              return (
               <button
                 key={tab.id}
                 type="button"
+                title={tab.path}
                 className={cn(
-                  'shrink-0 rounded-md border px-3 py-1 text-xs font-medium transition',
+                  'flex max-w-[14rem] shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition',
                   tab.id === activeTabId
                     ? 'border-primary/50 bg-primary/10 text-foreground'
                     : 'border-transparent bg-muted/40 text-muted-foreground hover:text-foreground',
@@ -334,11 +385,13 @@ function AppInner() {
                   setScreen('workspace')
                 }}
               >
-                {tab.title}
+                <TabIcon className="size-3.5 shrink-0 opacity-70" aria-hidden />
+                <span className="truncate">{label}</span>
                 <span
                   role="button"
                   tabIndex={0}
-                  className="ml-2 rounded hover:bg-destructive/20"
+                  aria-label={t('workspace.tabs.close')}
+                  className="ml-0.5 shrink-0 rounded px-0.5 hover:bg-destructive/20"
                   onClick={(e) => {
                     e.stopPropagation()
                     void closeTab(tab.id)
@@ -353,7 +406,7 @@ function AppInner() {
                   ×
                 </span>
               </button>
-            ))}
+            )})}
           </div>
         ) : (
           <span className="text-sm text-muted-foreground">{t('app.title')}</span>
@@ -386,7 +439,7 @@ function AppInner() {
         ) : screen === 'home' ? (
           <HomeView
             recents={recents}
-            onOpenReaderTab={openReaderTab}
+            onOpenChmByPath={openChmFromPath}
             onOpenProjectTab={openProjectTab}
             onClearRecent={handleClearRecent}
             onRefreshRecent={refreshRecent}
@@ -407,7 +460,7 @@ function AppInner() {
         ) : (
           <HomeView
             recents={recents}
-            onOpenReaderTab={openReaderTab}
+            onOpenChmByPath={openChmFromPath}
             onOpenProjectTab={openProjectTab}
             onClearRecent={handleClearRecent}
             onRefreshRecent={refreshRecent}
