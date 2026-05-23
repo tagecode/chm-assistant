@@ -20,10 +20,10 @@ export async function promptCompilerMissing(
 ): Promise<void> {
   const api = window.electronAPI
   const msg = t(compilerStatusMessageKey(status))
-  if (status.installGuideUrl && api) {
+  if (status.installGuideUrls?.length && api) {
     const open = window.confirm(`${msg}\n\n${t('settings.compiler.openGuideConfirm')}`)
     if (open) {
-      await api.openExternalUrl(status.installGuideUrl)
+      await api.openExternalUrl(status.installGuideUrls[0]!)
     }
     return
   }

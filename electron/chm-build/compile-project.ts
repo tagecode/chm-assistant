@@ -18,7 +18,11 @@ import { generateHhk } from './hhk-generator'
 import { generateHhp } from './hhp-generator'
 import { markdownToHtmlBody, wrapHtmlDocument } from './md-to-html'
 import { parseCompilerLogLine } from './parse-compiler-log'
-import { getCompilerStatus, runChmCompiler } from './compiler'
+import {
+  compilerOutputIndicatesFailure,
+  pickCompilerErrorLine,
+} from './compiler-output'
+import { getCompilerStatus, resolveChmCompiler, runChmCompiler } from './compiler'
 import {
   copyResourcesToBuild,
   gatherAllProjectResources,
@@ -28,6 +32,26 @@ const BUILD_DIR_NAME = '.chm-build'
 const HHC_NAME = 'toc.hhc'
 const HHK_NAME = 'index.hhk'
 const HHP_NAME = 'project.hhp'
+
+function formatCompileFailureMessage(
+  code: number,
+  detail: string,
+  kind: 'hhc' | 'chmcmd',
+): string {
+  if (/HHC6003/i.test(detail)) {
+    return (
+      `编译失败（退出码 ${code}）：${detail}\n` +
+      '请以管理员身份运行：regsvr32 "C:\\Program Files (x86)\\HTML Help Workshop\\itcc.dll"'
+    )
+  }
+  if (/HHC5003/i.test(detail) && kind === 'hhc') {
+    return (
+      `编译失败（退出码 ${code}）：${detail}\n` +
+      'HTML Help 组件可能未正确注册或已损坏。请以管理员身份注册 itcc.dll，或在设置中改用 chmcmd。'
+    )
+  }
+  return `编译失败（退出码 ${code}）：${detail}`
+}
 
 function mdPathToHtmlRel(mdPath: string): string {
   const norm = mdPath.replace(/\\/g, '/')
@@ -165,15 +189,26 @@ export async function compileProject(
   const outputName =
     config.compile?.outputFile?.trim() ||
     `${config.title.replace(/[<>:"/\\|?*]/g, '_') || 'output'}.chm`
-  const compiledFile = path.join('..', 'dist', outputName).replace(/\\/g, '/')
+  const chmPath = path.join(distDir, outputName)
+  const compiler = resolveChmCompiler(customCompilerPath)
+  if (!compiler) {
+    const err = 'COMPILER_NOT_FOUND'
+    emit({ level: 'error', message: err })
+    return { ok: false, error: err, logs }
+  }
 
   const hhp = generateHhp(config, {
-    compiledFile,
-    contentsFile: HHC_NAME,
-    indexFile: HHK_NAME,
-    defaultTopicHtml,
-    htmlFiles: [...htmlFiles, HHC_NAME, HHK_NAME],
     buildDir,
+    compiledFile: chmPath,
+    contentsFile: path.join(buildDir, HHC_NAME),
+    indexFile: path.join(buildDir, HHK_NAME),
+    defaultTopicHtml: path.join(buildDir, defaultTopicHtml),
+    htmlFiles: [
+      ...htmlFiles.map((rel) => path.join(buildDir, rel)),
+      path.join(buildDir, HHC_NAME),
+      path.join(buildDir, HHK_NAME),
+    ],
+    compilerKind: compiler.kind,
   })
   const hhpPath = path.join(buildDir, HHP_NAME)
   writeUtf8NoBom(hhpPath, hhp)
@@ -199,12 +234,14 @@ export async function compileProject(
     }
   }
 
-  const chmPath = path.join(distDir, outputName)
-  if (code !== 0 || !fs.existsSync(chmPath)) {
+  if (code !== 0 || !fs.existsSync(chmPath) || compilerOutputIndicatesFailure(stdout, stderr)) {
+    const hhcDetail = pickCompilerErrorLine(stdout, stderr)
     const err =
       code === 127 || stderr === 'COMPILER_NOT_FOUND'
         ? 'COMPILER_NOT_FOUND'
-        : `编译失败（退出码 ${code}）。请确认已安装 hhc.exe 或 chmcmd。`
+        : hhcDetail
+          ? formatCompileFailureMessage(code, hhcDetail, compiler.kind)
+          : `编译失败（退出码 ${code}）。请确认编译器可用（内置 chmcmd、系统 chmcmd 或 hhc.exe）。`
     emit({ level: 'error', message: err })
     return { ok: false, error: err, logs }
   }

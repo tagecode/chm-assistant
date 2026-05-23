@@ -38,7 +38,7 @@ jobs:
           - os: windows-latest
             platform: win
             arch: x64
-            needs_chmcmd: false
+            needs_chmcmd: true
             artifact_glob: |
               release/**/*.exe
           - os: ubuntu-latest
@@ -82,10 +82,15 @@ jobs:
         run: bash scripts/ci-install-linux-build-deps.sh
 
       - name: Install chmcmd (macOS / Linux)
-        if: matrix.needs_chmcmd
+        if: matrix.needs_chmcmd && matrix.platform != 'win'
         run: bash scripts/ci-install-chmcmd.sh
         env:
           CI_ARCH: ${{ matrix.arch }}
+
+      - name: Install chmcmd (Windows)
+        if: matrix.platform == 'win'
+        shell: pwsh
+        run: ./scripts/ci-install-chmcmd.ps1
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -141,7 +146,7 @@ jobs:
             |------|------|------|------|
             | macOS | arm64 | `.dmg` / `.zip` | Apple Silicon |
             | macOS | x64 | `.dmg` / `.zip` | Intel Mac |
-            | Windows | x64 | `.exe` (NSIS) | 编译 CHM 需自装 [HTML Help Workshop](https://learn.microsoft.com/en-us/previous-versions/windows/desktop/htmlhelp/microsoft-html-help-downloads) |
+            | Windows | x64 | `.exe` (NSIS) | 内置 `chmcmd`（GPL-2，见 NOTICES）；可选自装 `hhc.exe` |
             | Linux | x64 / arm64 | `.AppImage` / `.deb` | 内置 `chmcmd`（GPL-2，见 NOTICES） |
 
             未签名构建：macOS 首次打开可能需在系统设置中允许。

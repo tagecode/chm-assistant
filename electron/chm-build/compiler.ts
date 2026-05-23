@@ -1,8 +1,15 @@
 import { spawn } from 'node:child_process'
+import path from 'node:path'
 
 import { resolveChmCompiler } from '../compiler-resolve'
 
-export { getCompilerStatus, HTML_HELP_WORKSHOP_DOWNLOAD_URL } from '../compiler-resolve'
+export {
+  getCompilerStatus,
+  resolveChmCompiler,
+  HTML_HELP_WORKSHOP_DOWNLOAD_URL,
+  HTML_HELP_WORKSHOP_DOWNLOAD_URL_BACKUP,
+  HTML_HELP_WORKSHOP_DOWNLOAD_URLS,
+} from '../compiler-resolve'
 export type { CompilerStatus, ResolvedCompiler } from '../compiler-resolve'
 
 export function runChmCompiler(
@@ -20,11 +27,11 @@ export function runChmCompiler(
   }
 
   return new Promise((resolve) => {
-    const args = [...compiler.args, hhpPath]
+    const hhpArg = path.basename(hhpPath)
+    const args = [...compiler.args, hhpArg]
     const child = spawn(compiler.cmd, args, {
       cwd,
       windowsHide: true,
-      shell: process.platform === 'win32',
     })
     let stdout = ''
     let stderr = ''

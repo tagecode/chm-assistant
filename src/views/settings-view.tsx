@@ -207,17 +207,20 @@ export function SettingsView({
           <Button variant="outline" size="sm" onClick={() => void refreshCompilerStatus()}>
             {t('settings.compiler.refresh')}
           </Button>
-          {compilerStatus?.installGuideUrl ? (
+          {compilerStatus?.installGuideUrls?.map((url, index) => (
             <Button
+              key={url}
               variant="outline"
               size="sm"
-              onClick={() =>
-                void window.electronAPI?.openExternalUrl(compilerStatus.installGuideUrl!)
-              }
+              onClick={() => void window.electronAPI?.openExternalUrl(url)}
             >
-              {t('settings.compiler.openGuide')}
+              {t(
+                index === 0
+                  ? 'settings.compiler.openGuide'
+                  : 'settings.compiler.openGuideBackup',
+              )}
             </Button>
-          ) : null}
+          ))}
         </div>
       </section>
     </div>

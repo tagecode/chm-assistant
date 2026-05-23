@@ -81,11 +81,11 @@ pnpm run test:mvp       # 构建 + 静态检查 + Electron 原生冒烟
 
 ```bash
 pnpm run dist:mac      # macOS
-pnpm run dist:win      # Windows（不含 chmcmd 捆绑）
+pnpm run dist:win      # Windows（含 compilers:stage 内置 chmcmd）
 pnpm run dist:linux    # Linux（含 compilers:stage）
 ```
 
-macOS / Linux 打包前会执行 `pnpm run compilers:stage` 以内置 **chmcmd**。跨平台 CI 与发版流程见 [docs/ci.md](docs/ci.md)。
+各平台打包前会执行 `pnpm run compilers:stage` 以内置 **chmcmd**。跨平台 CI 与发版流程见 [docs/ci.md](docs/ci.md)。
 
 发版前请更新 `package.json` 中的 `version` 并推送同名标签（例如 `v0.1.0`）。
 
@@ -97,8 +97,8 @@ macOS / Linux 打包前会执行 `pnpm run compilers:stage` 以内置 **chmcmd**
 
 | 平台 | 编译器 | 安装包是否内置 |
 |------|--------|----------------|
-| **Windows** | `hhc.exe`（[HTML Help Workshop](https://www.microsoft.com/en-us/download/details.aspx?id=21138)） | 否；应用内检测常见路径，可在设置中指定 |
-| **macOS / Linux** | **chmcmd**（Free Pascal，GPL-2） | 是（`pnpm run compilers:stage` 后打入发布包） |
+| **Windows** | **chmcmd**（Free Pascal，GPL-2）；可选回退 **hhc.exe** | 是（`pnpm run compilers:stage` 后打入发布包） |
+| **macOS / Linux** | **chmcmd** | 同上 |
 
 完整说明（许可、路径解析、维护者流程）：[docs/compiler-setup.md](docs/compiler-setup.md)
 

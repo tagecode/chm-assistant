@@ -40,7 +40,7 @@ NATIVE_REBUILD_ARCH=x64 CI_PLATFORM=mac CI_ARCH=x64 pnpm run dist:ci
 NATIVE_REBUILD_ARCH=arm64 CI_PLATFORM=linux CI_ARCH=arm64 pnpm run dist:ci
 ```
 
-`dist:prepare` 会读取 `NATIVE_REBUILD_ARCH`（未设置则用 `process.arch`）。Unix 上 `compilers:stage` 将 `chmcmd` 复制到 `resources/compilers/{platform}-{arch}/`。
+`dist:prepare` 会读取 `NATIVE_REBUILD_ARCH`（未设置则用 `process.arch`）。`compilers:stage` 将 `chmcmd` 复制到 `resources/compilers/{platform}-{arch}/`（Windows 为 `chmcmd.exe`）。
 
 ## 应用图标
 
@@ -70,7 +70,7 @@ Tag 校验：`node scripts/check-release-version.mjs`
 |------|------|------|
 | Linux | `scripts/ci-install-linux-build-deps.sh` | `build-essential`、`python3`、`libfuse2` |
 | Linux / macOS | `scripts/ci-install-chmcmd.sh` | Free Pascal → `chmcmd` |
-| Windows | — | 不捆绑 `hhc.exe`（微软 EULA） |
+| Windows | `scripts/ci-install-chmcmd.ps1` | Chocolatey `freepascal` → `chmcmd.exe` |
 
 ## 产物
 

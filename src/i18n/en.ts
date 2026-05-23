@@ -114,20 +114,21 @@ export const en: Record<MessageKey, string> = {
   'settings.encoding.gbk': 'GBK / GB18030',
   'settings.compiler': 'CHM compiler',
   'settings.compiler.hint':
-    'On Windows, install HTML Help Workshop (hhc.exe) yourself—the app does not bundle Microsoft’s compiler. On macOS/Linux, the bundled chmcmd is preferred when present.',
+    'All platforms prefer the bundled chmcmd (GPL-2). On Windows, system hhc.exe is used only when chmcmd is unavailable—the app never bundles Microsoft’s compiler.',
   'settings.compiler.pathLabel': 'Custom path (empty = auto)',
   'settings.compiler.pathPlaceholder': 'e.g. hhc.exe or chmcmd',
   'settings.compiler.browse': 'Browse…',
   'settings.compiler.clear': 'Use auto',
   'settings.compiler.refresh': 'Re-check',
-  'settings.compiler.openGuide': 'Windows install guide',
+  'settings.compiler.openGuide': 'Download installer',
+  'settings.compiler.openGuideBackup': 'Mirror download',
   'settings.compiler.openGuideConfirm':
-    'Open the HTML Help Workshop download page in your browser?',
+    'Download the HTML Help Workshop installer (htmlhelp.exe) in your browser?',
   'settings.compiler.status.okBundled': 'Ready: using bundled chmcmd',
   'settings.compiler.status.okSystem': 'Ready: using system compiler',
   'settings.compiler.status.okSettings': 'Ready: using your custom compiler path',
   'settings.compiler.status.missingWin':
-    'hhc.exe not found. Install HTML Help Workshop or set the path above.',
+    'No compiler found. Use an official build with bundled chmcmd, install Free Pascal chmcmd, or install HTML Help Workshop (hhc.exe) and set the path above.',
   'settings.compiler.status.missingUnix':
     'chmcmd not found. Run pnpm run compilers:stage for releases, or install Free Pascal chmcmd on PATH.',
   'settings.compiler.status.missingCustom':

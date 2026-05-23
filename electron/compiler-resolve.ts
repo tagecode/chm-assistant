@@ -4,9 +4,18 @@ import { fileURLToPath } from 'node:url'
 
 import { app } from 'electron'
 
-/** 微软 HTML Help Workshop 下载（仅用于引导用户安装 hhc，不可随应用分发 hhc.exe） */
+/** HTML Help Workshop 安装包（Internet Archive 镜像；微软官方页已不可用，不可随应用分发 hhc.exe） */
 export const HTML_HELP_WORKSHOP_DOWNLOAD_URL =
-  'https://learn.microsoft.com/en-us/previous-versions/windows/desktop/htmlhelp/microsoft-html-help-downloads'
+  'https://web.archive.org/web/20160201063255/http://download.microsoft.com/download/0/A/9/0A939EF6-E31C-430F-A3DF-DFAE7960D564/htmlhelp.exe'
+
+/** 备用镜像（Sandcastle Help File Builder 仓库） */
+export const HTML_HELP_WORKSHOP_DOWNLOAD_URL_BACKUP =
+  'https://github.com/EWSoftware/SHFB/raw/master/ThirdPartyTools/htmlhelp.exe'
+
+export const HTML_HELP_WORKSHOP_DOWNLOAD_URLS = [
+  HTML_HELP_WORKSHOP_DOWNLOAD_URL,
+  HTML_HELP_WORKSHOP_DOWNLOAD_URL_BACKUP,
+] as const
 
 export type CompilerKind = 'hhc' | 'chmcmd'
 export type CompilerSource = 'bundled' | 'settings' | 'system'
@@ -23,10 +32,10 @@ export interface CompilerStatus {
   kind: CompilerKind | null
   source: CompilerSource | null
   path: string | null
-  /** 是否为本平台预期的内置编译器（Unix 为 chmcmd） */
+  /** 安装包是否已内置 chmcmd */
   bundledIncluded: boolean
-  /** Windows 安装指引链接 */
-  installGuideUrl: string | null
+  /** Windows 安装包下载链接（主链、备用） */
+  installGuideUrls: readonly string[] | null
   messageKey: CompilerMessageKey
 }
 
@@ -92,11 +101,51 @@ function resolveExistingFile(candidate: string): string | null {
   return candidate
 }
 
+function resolveCustomCompiler(customPath: string): ResolvedCompiler | null {
+  const p = resolveExistingFile(customPath)
+  if (!p) {
+    return null
+  }
+  const base = path.basename(p).toLowerCase()
+  if (base === 'chmcmd' || base === 'chmcmd.exe') {
+    return { cmd: p, args: [], kind: 'chmcmd', source: 'settings' }
+  }
+  return { cmd: p, args: [], kind: 'hhc', source: 'settings' }
+}
+
+function resolveBundledChmcmd(): ResolvedCompiler | null {
+  for (const p of bundledChmcmdCandidates()) {
+    return { cmd: p, args: [], kind: 'chmcmd', source: 'bundled' }
+  }
+  return null
+}
+
+function resolveSystemChmcmd(): ResolvedCompiler | null {
+  const systemNames =
+    process.platform === 'win32'
+      ? ['chmcmd.exe', 'chmcmd']
+      : ['chmcmd', '/usr/local/bin/chmcmd', '/opt/homebrew/bin/chmcmd']
+  for (const name of systemNames) {
+    const p = resolveExistingFile(name)
+    if (p) {
+      return { cmd: p, args: [], kind: 'chmcmd', source: 'system' }
+    }
+  }
+  return null
+}
+
+function resolveChmcmd(customPath: string | null): ResolvedCompiler | null {
+  if (customPath) {
+    return resolveCustomCompiler(customPath)
+  }
+  return resolveBundledChmcmd() ?? resolveSystemChmcmd()
+}
+
 function resolveWindowsHhc(customPath: string | null): ResolvedCompiler | null {
   if (customPath) {
-    const p = resolveExistingFile(customPath)
-    if (p) {
-      return { cmd: p, args: [], kind: 'hhc', source: 'settings' }
+    const custom = resolveCustomCompiler(customPath)
+    if (custom?.kind === 'hhc') {
+      return custom
     }
     return null
   }
@@ -108,34 +157,20 @@ function resolveWindowsHhc(customPath: string | null): ResolvedCompiler | null {
   return null
 }
 
-function resolveUnixChmcmd(customPath: string | null): ResolvedCompiler | null {
-  if (customPath) {
-    const p = resolveExistingFile(customPath)
-    if (p) {
-      return { cmd: p, args: [], kind: 'chmcmd', source: 'settings' }
-    }
-    return null
-  }
-  for (const p of bundledChmcmdCandidates()) {
-    return { cmd: p, args: [], kind: 'chmcmd', source: 'bundled' }
-  }
-  const systemNames = ['chmcmd', '/usr/local/bin/chmcmd', '/opt/homebrew/bin/chmcmd']
-  for (const name of systemNames) {
-    const p = resolveExistingFile(name)
-    if (p) {
-      return { cmd: p, args: [], kind: 'chmcmd', source: 'system' }
-    }
-  }
-  return null
-}
-
-/** 解析顺序：用户设置路径 → 内置 chmcmd（仅 Unix）→ 系统 PATH / 常见路径 */
+/** 解析顺序：自定义路径 → 内置 chmcmd → 系统 chmcmd → Windows: 系统 hhc */
 export function resolveChmCompiler(customPath: string | null): ResolvedCompiler | null {
   const trimmed = customPath?.trim() || null
-  if (process.platform === 'win32') {
-    return resolveWindowsHhc(trimmed)
+  if (trimmed) {
+    return resolveCustomCompiler(trimmed)
   }
-  return resolveUnixChmcmd(trimmed)
+  if (process.platform === 'win32') {
+    return (
+      resolveBundledChmcmd() ??
+      resolveSystemChmcmd() ??
+      resolveWindowsHhc(null)
+    )
+  }
+  return resolveChmcmd(null)
 }
 
 export function getCompilerStatus(customPath: string | null): CompilerStatus {
@@ -146,13 +181,19 @@ export function getCompilerStatus(customPath: string | null): CompilerStatus {
     if (resolved) {
       return {
         available: true,
-        kind: 'hhc',
+        kind: resolved.kind,
         source: resolved.source,
         path: resolved.cmd,
-        bundledIncluded: false,
-        installGuideUrl: null,
+        bundledIncluded: bundledChmcmdCandidates().length > 0,
+        installGuideUrls: null,
         messageKey:
-          resolved.source === 'settings' ? 'ok.settings' : 'ok.system',
+          resolved.source === 'settings'
+            ? 'ok.settings'
+            : resolved.kind === 'chmcmd'
+              ? resolved.source === 'bundled'
+                ? 'ok.bundled'
+                : 'ok.system'
+              : 'ok.system',
       }
     }
     return {
@@ -160,8 +201,8 @@ export function getCompilerStatus(customPath: string | null): CompilerStatus {
       kind: null,
       source: trimmed ? null : null,
       path: trimmed,
-      bundledIncluded: false,
-      installGuideUrl: HTML_HELP_WORKSHOP_DOWNLOAD_URL,
+      bundledIncluded: bundledChmcmdCandidates().length > 0,
+      installGuideUrls: HTML_HELP_WORKSHOP_DOWNLOAD_URLS,
       messageKey: trimmed ? 'missing.custom' : 'missing.win',
     }
   }
@@ -174,7 +215,7 @@ export function getCompilerStatus(customPath: string | null): CompilerStatus {
       source: resolved.source,
       path: resolved.cmd,
       bundledIncluded: hasBundled,
-      installGuideUrl: null,
+      installGuideUrls: null,
       messageKey:
         resolved.source === 'bundled'
           ? 'ok.bundled'
@@ -189,7 +230,7 @@ export function getCompilerStatus(customPath: string | null): CompilerStatus {
     source: null,
     path: trimmed,
     bundledIncluded: hasBundled,
-    installGuideUrl: null,
+    installGuideUrls: null,
     messageKey: trimmed ? 'missing.custom' : 'missing.unix',
   }
 }

@@ -93,7 +93,7 @@ pnpm run test:mvp -- --static-only
 | 平台 | 构建命令 | 安装/启动 | 打开 CHM | 编译（若适用） | 人工 ✓ |
 |------|----------|-----------|----------|----------------|--------|
 | macOS | `pnpm run dist:mac` | ☐ | ☐ | ☐（chmcmd） | ☐ |
-| Windows | `pnpm run dist:win` | ☐ | ☐ | ☐（hhc 已装） | ☐ |
+| Windows | `pnpm run dist:win` | ☐ | ☐ | ☐（内置 chmcmd） | ☐ |
 | Linux | `pnpm run dist:linux`（**非 MVP 必达**） | ☐ | ☐ | ☐ | ☐ |
 
 **自动化**：`release/` 下存在 `.dmg`/`.zip`（mac）或 `.exe`（win）等。

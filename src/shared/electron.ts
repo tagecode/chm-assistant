@@ -80,7 +80,7 @@ export interface CompilerStatus {
   source: 'bundled' | 'settings' | 'system' | null
   path: string | null
   bundledIncluded: boolean
-  installGuideUrl: string | null
+  installGuideUrls: readonly string[] | null
   messageKey: CompilerMessageKey
 }
 
