@@ -1,4 +1,4 @@
-import { forwardRef, lazy, Suspense, useImperativeHandle, useRef } from 'react'
+import { forwardRef, lazy, Suspense, useEffect, useImperativeHandle, useRef } from 'react'
 import type { OnMount } from '@monaco-editor/react'
 import type { editor } from 'monaco-editor'
 
@@ -13,14 +13,28 @@ interface ComposerEditorProps {
   value: string
   onChange: (value: string) => void
   loadingLabel: string
+  onSave?: () => void
 }
 
 export const ComposerEditor = forwardRef<ComposerEditorHandle, ComposerEditorProps>(
-  function ComposerEditor({ value, onChange, loadingLabel }, ref) {
+  function ComposerEditor({ value, onChange, loadingLabel, onSave }, ref) {
     const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
+    const onSaveRef = useRef(onSave)
 
-    const handleMount: OnMount = (ed) => {
+    useEffect(() => {
+      onSaveRef.current = onSave
+    }, [onSave])
+
+    const handleMount: OnMount = (ed, monaco) => {
       editorRef.current = ed
+      ed.addAction({
+        id: 'chm-assistant-composer-save',
+        label: 'Save',
+        keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS],
+        run: () => {
+          onSaveRef.current?.()
+        },
+      })
     }
 
     useImperativeHandle(ref, () => ({

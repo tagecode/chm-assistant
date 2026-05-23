@@ -170,6 +170,12 @@ export function ComposerView({
     return true
   }, [activeMdPath, editorValue, rootPath, t])
 
+  const handleEditorSave = useCallback(() => {
+    if (activeMdPath && !saving) {
+      void saveCurrent()
+    }
+  }, [activeMdPath, saveCurrent, saving])
+
   useEffect(() => {
     onRegisterTabHandle?.(tab.id, {
       isDirty: () => dirty,
@@ -480,6 +486,7 @@ export function ComposerView({
                     setEditorValue(v)
                     setDirty(true)
                   }}
+                  onSave={handleEditorSave}
                   loadingLabel={t('app.loading')}
                 />
               ) : (
