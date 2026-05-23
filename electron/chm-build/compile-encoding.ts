@@ -86,18 +86,18 @@ function languageToHtmlLang(language: string): string {
   return language.replace('_', '-')
 }
 
-/** .hhp 中是否写入 Charset 及取值。 */
+/** .hhp 中是否写入 Charset（仅 chmcmd 支持；hhc.exe 不识别该选项）。 */
 export function resolveHhpCharset(
   profile: CompileEncodingProfile,
   compilerKind: 'hhc' | 'chmcmd',
 ): string | undefined {
+  if (compilerKind === 'hhc') {
+    return undefined
+  }
   if (profile.encoding !== 'utf-8') {
     return profile.charset
   }
-  if (compilerKind === 'chmcmd') {
-    return '65001'
-  }
-  return undefined
+  return '65001'
 }
 
 export function writeCompileTextFile(

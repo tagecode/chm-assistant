@@ -1,6 +1,10 @@
 import { spawn } from 'node:child_process'
-import path from 'node:path'
 
+import {
+  formatCompilerProjectArg,
+  resolveCompilerWorkingDir,
+  type ChmCompilerPathProfile,
+} from './hhp-generator'
 import { resolveChmCompiler, type ResolvedCompiler } from '../compiler-resolve'
 
 export {
@@ -15,7 +19,7 @@ export type { CompilerStatus, ResolvedCompiler } from '../compiler-resolve'
 
 export function runChmCompiler(
   hhpPath: string,
-  cwd: string,
+  profile: ChmCompilerPathProfile,
   customCompilerPath: string | null,
   compilerOverride?: ResolvedCompiler | null,
 ): Promise<{ code: number; stdout: string; stderr: string }> {
@@ -28,8 +32,10 @@ export function runChmCompiler(
     })
   }
 
+  const cwd = resolveCompilerWorkingDir(profile)
+
   return new Promise((resolve) => {
-    const hhpArg = path.basename(hhpPath)
+    const hhpArg = formatCompilerProjectArg(profile, hhpPath)
     const args = [...compiler.args, hhpArg]
     const child = spawn(compiler.cmd, args, {
       cwd,

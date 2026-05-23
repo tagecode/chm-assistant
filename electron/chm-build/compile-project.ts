@@ -14,7 +14,11 @@ import {
 } from '../project-fs'
 import { generateHhc } from './hhc-generator'
 import { generateHhk } from './hhk-generator'
-import { generateHhp } from './hhp-generator'
+import {
+  formatNavLocalPath,
+  generateHhp,
+  resolveChmCompilerPathProfile,
+} from './hhp-generator'
 import {
   defaultFontForCharset,
   encodingLabel,
@@ -37,7 +41,8 @@ import {
 } from '../project-resources'
 import { closeChmSessionsForPath } from '../chm-reader-service'
 
-const BUILD_DIR_NAME = '.chm-build'
+const CHMCMD_BUILD_DIR_NAME = '.chm-build'
+const HHC_BUILD_DIR_NAME = 'chm-build-hhc'
 const HHC_NAME = 'toc.hhc'
 const HHK_NAME = 'index.hhk'
 const HHP_NAME = 'project.hhp'
@@ -112,6 +117,10 @@ function mdPathToHtmlRel(mdPath: string): string {
   return norm.replace(/\.md$/i, '.html')
 }
 
+function buildDirNameForCompiler(kind: 'hhc' | 'chmcmd'): string {
+  return kind === 'hhc' ? HHC_BUILD_DIR_NAME : CHMCMD_BUILD_DIR_NAME
+}
+
 function findTocTitle(nodes: ProjectTocNode[], mdRel: string): string | null {
   for (const n of nodes) {
     if (n.mdPath?.replace(/\\/g, '/') === mdRel) {
@@ -144,7 +153,6 @@ export async function compileProject(
   }
 
   const mdPaths = listAllMdPaths(config.toc)
-  const logCtx = { rootPath, buildDir: path.join(rootPath, BUILD_DIR_NAME) }
 
   const { all: resourcePaths, missingByMd } = gatherAllProjectResources(
     rootPath,
@@ -174,24 +182,6 @@ export async function compileProject(
     return { ok: false, error: err, logs }
   }
 
-  const buildDir = logCtx.buildDir
-  const distDir = path.join(rootPath, 'dist')
-  fs.rmSync(buildDir, { recursive: true, force: true })
-  fs.mkdirSync(buildDir, { recursive: true })
-  fs.mkdirSync(distDir, { recursive: true })
-
-  let resourcePathMap = new Map<string, string>()
-  if (resourcePaths.length > 0) {
-    emit({ level: 'info', message: `正在复制 ${resourcePaths.length} 个资源文件…` })
-    const { copied, pathMap } = copyResourcesToBuild(rootPath, buildDir, resourcePaths)
-    resourcePathMap = pathMap
-    for (const rel of copied) {
-      emit({ level: 'info', message: `已复制资源 ${rel}` })
-    }
-  }
-
-  emit({ level: 'info', message: '正在将 Markdown 转换为 HTML…' })
-
   const windowsViewerCompat = config.compile?.windowsViewerCompat === true
   const encProfile = resolveCompileEncodingProfile(config.language, windowsViewerCompat)
   const legacyAnsi = encProfile.encoding !== 'utf-8'
@@ -218,6 +208,25 @@ export async function compileProject(
       return { ok: false, error: legacyCheck.message, logs }
     }
   }
+
+  const buildDir = path.join(rootPath, buildDirNameForCompiler(compiler.kind))
+  const logCtx = { rootPath, buildDir }
+  const distDir = path.join(rootPath, 'dist')
+  fs.rmSync(buildDir, { recursive: true, force: true })
+  fs.mkdirSync(buildDir, { recursive: true })
+  fs.mkdirSync(distDir, { recursive: true })
+
+  let resourcePathMap = new Map<string, string>()
+  if (resourcePaths.length > 0) {
+    emit({ level: 'info', message: `正在复制 ${resourcePaths.length} 个资源文件…` })
+    const { copied, pathMap } = copyResourcesToBuild(rootPath, buildDir, resourcePaths)
+    resourcePathMap = pathMap
+    for (const rel of copied) {
+      emit({ level: 'info', message: `已复制资源 ${rel}` })
+    }
+  }
+
+  emit({ level: 'info', message: '正在将 Markdown 转换为 HTML…' })
 
   const mdToBuildHtml = buildMdToBuildHtmlMap(mdPaths)
   const compilePathMap = new Map<string, string>(resourcePathMap)
@@ -269,6 +278,17 @@ export async function compileProject(
   const mdToHtml = (mdPath: string) =>
     mdToBuildHtml.get(mdPath.replace(/\\/g, '/')) ??
     mdPathToHtmlRel(mdPath.replace(/\\/g, '/'))
+  const compilerPathProfile = resolveChmCompilerPathProfile(
+    rootPath,
+    buildDir,
+    compiler.kind,
+  )
+  const mdToNavHtml = (mdPath: string) =>
+    formatNavLocalPath(
+      compilerPathProfile,
+      buildDir,
+      mdToHtml(mdPath),
+    )
   const defaultMd = config.defaultPage || 'index.md'
   const defaultHtml = mdToHtml(defaultMd.replace(/\\/g, '/'))
   if (!htmlFiles.includes(defaultHtml)) {
@@ -292,12 +312,12 @@ export async function compileProject(
   const navMeta = encProfile.htmlMetaCharset
   writeCompileTextFile(
     path.join(buildDir, HHC_NAME),
-    generateHhc(config.toc, mdToHtml, { metaCharset: navMeta }),
+    generateHhc(config.toc, mdToNavHtml, { metaCharset: navMeta }),
     encProfile.encoding,
   )
   writeCompileTextFile(
     path.join(buildDir, HHK_NAME),
-    generateHhk(config.toc, mdToHtml, { metaCharset: navMeta }),
+    generateHhk(config.toc, mdToNavHtml, { metaCharset: navMeta }),
     encProfile.encoding,
   )
 
@@ -314,8 +334,12 @@ export async function compileProject(
       path.join(buildDir, HHC_NAME),
       path.join(buildDir, HHK_NAME),
     ],
+    profile: compilerPathProfile,
     hhpCharset,
-    defaultFont: defaultFontForCharset(hhpCharset),
+    defaultFont:
+      compiler.kind === 'hhc' && legacyAnsi
+        ? defaultFontForCharset(encProfile.charset)
+        : defaultFontForCharset(hhpCharset),
   })
   const hhpPath = path.join(buildDir, HHP_NAME)
   writeCompileTextFile(hhpPath, hhp, encProfile.encoding)
@@ -329,7 +353,7 @@ export async function compileProject(
   emit({ level: 'info', message: '正在调用外部 CHM 编译器…' })
   const { code, stdout, stderr } = await runChmCompiler(
     hhpPath,
-    buildDir,
+    compilerPathProfile,
     customCompilerPath,
     compiler,
   )
@@ -348,7 +372,10 @@ export async function compileProject(
     }
   }
 
-  if (code !== 0 || !fs.existsSync(chmPath) || compilerOutputIndicatesFailure(stdout, stderr)) {
+  const compilerReportedFailure = compilerOutputIndicatesFailure(stdout, stderr)
+  const chmCreated = fs.existsSync(chmPath)
+  const exitCodeIndicatesFailure = code !== 0 && compiler.kind !== 'hhc'
+  if (exitCodeIndicatesFailure || !chmCreated || compilerReportedFailure) {
     const hhcDetail = pickCompilerErrorLine(stdout, stderr)
     const err =
       code === 127 || stderr === 'COMPILER_NOT_FOUND'

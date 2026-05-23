@@ -96,7 +96,7 @@ pnpm run dist:win   # 或 dist:mac / dist:linux
   regsvr32 "C:\Program Files (x86)\HTML Help Workshop\itcc.dll"
   ```
   若仍失败，请重新安装 Workshop，或在设置中指定 **chmcmd.exe**（Free Pascal）。
-- **弹窗提示找不到 `项目根目录\toc.hhc`**：旧版构建脚本的路径问题；更新应用后 `.hhp` 会使用 `.chm-build/toc.hhc`。
+- **弹窗提示找不到 `项目根目录\toc.hhc`**：旧版构建脚本的路径问题；更新应用后会按编译器拆分路径策略：`chmcmd` 使用 `.chm-build`，`hhc.exe` 使用不以点开头的 `chm-build-hhc`（HTML Help Compiler 对 `.chm-build` 这类点目录兼容性很差）。
 - **32 位**：`hhc` 与 FPC 的 `chmcmd.exe` 多为 32 位，在 64 位 Windows 上通常仍可正常使用。
 - **中文路径 / 文件名**：`chmcmd`（以及部分环境下的 `hhc.exe`）在打开 `.hhp` 所列文件时，对 **非 ASCII 路径**（如 `docs/指南/说明.md`）支持很差，常表现为「无法打开文件」或编译失败。应用会在编译时把 `.chm-build` 内的 HTML 与资源复制为 **ASCII 安全文件名**（按哈希重命名），**项目 `docs/` 下仍可使用中文文件夹与文件名**；侧栏标题与 CHM 内显示名不受影响。
 - **Windows 自带查看器目录/索引乱码**：HTML Help 1.x 的目录（`.hhc`）与索引（`.hhk`）在 `hh.exe` 中仍按 **传统 ANSI 代码页**（简体中文多为 **936**）解释，而默认编译链产出 **UTF-8** 中间文件（`Charset=65001`，适配 **chmcmd** 与本应用阅读器）。因此在「系统已开启 UTF-8 Beta（ACP 65001）」的现代 Windows 上，**无法靠「检测系统代码页 → 统一改成 GBK」** 同时保证本应用与 `hh.exe` 均正常——强行改 GBK 会导致 chmcmd 与 UTF-8 正文/HTML 不一致，产物损坏。可选方向见下文「编码策略评估」。
@@ -151,7 +151,7 @@ Windows 上可通过 `[System.Text.Encoding]::Default.CodePage`（即 GetACP）�
 ### 推荐产品策略（CR-08）
 
 1. **默认**：UTF-8 中间文件 + `Charset=65001`（chmcmd）→ **本应用优先**，`hh.exe` 侧栏中文可能乱码。
-2. **项目元数据 →「兼容 Windows 帮助查看器」**（已实现）：整包 **GBK/Big5**（HTML + `.hhc/.hhk/.hhp`，`Charset=936/950`）。编译日志在 ACP=65001 时会提示改用 **hhc.exe**。
+2. **项目元数据 →「兼容 Windows 帮助查看器」**（已实现）：整包 **GBK/Big5**（HTML + `.hhc/.hhk` 以 GBK/Big5 字节写入）。**chmcmd** 时在 `.hhp` 写 `Charset=936/950`，并使用 `.chm-build`；**hhc.exe** 不识别 `Charset=`，改用 `Language=` + `Default Font=`，并使用 `chm-build-hhc` 普通目录，避免 HTML Help Compiler 在点目录下把所有输入文件判为未编译。编译日志在 ACP=65001 时会提示改用 **hhc.exe**。
 3. **自动策略（未做）**：编译器 × 系统 ACP × 用户目标 三维判断。
 
 实现：`electron/chm-build/compile-encoding.ts`（`resolveCompileEncodingProfile`、`writeCompileTextFile`）；选项字段 `compile.windowsViewerCompat`。
