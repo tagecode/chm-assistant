@@ -25,7 +25,7 @@ function defaultReaderUi(tab: WorkspaceTab & { kind: 'reader' }) {
       currentFragment: tab.entryFragment,
       sidePanel: 'toc' as ReaderSidePanel,
       zoomPercent: 100,
-      widthMode: 'fit' as ReaderWidthMode,
+      widthMode: 'full' as ReaderWidthMode,
     }
   )
 }

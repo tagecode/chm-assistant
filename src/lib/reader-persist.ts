@@ -19,7 +19,7 @@ export function buildWorkspaceSession(
       currentFragment: tab.entryFragment,
       sidePanel: 'toc' as const,
       zoomPercent: 100,
-      widthMode: 'fit' as const,
+      widthMode: 'full' as const,
     }
     return {
       kind: 'reader',
