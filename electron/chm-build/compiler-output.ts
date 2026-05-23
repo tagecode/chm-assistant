@@ -1,4 +1,4 @@
-/** hhc 退出码为 0 时仍可能失败；chmcmd 亦可能输出 error/note。 */
+/** hhc 退出码为 0 时仍可能失败；chmcmd 的 Note/Warning 为信息性输出。 */
 export function compilerOutputIndicatesFailure(
   stdout: string,
   stderr: string,
@@ -11,10 +11,13 @@ export function compilerOutputIndicatesFailure(
   ) {
     return true
   }
-  return /^(error|warning|note):/im.test(text) ||
+  // chmcmd 以 "Error:" 表示失败；"Note:" / "Warning:" 在退出码 0 时为正常信息
+  return (
+    /^error:/im.test(text) ||
     /seems corrupt|Can't find project file|Invalid number of parameters/i.test(
       text,
     )
+  )
 }
 
 export function pickCompilerErrorLine(
@@ -33,7 +36,7 @@ export function pickCompilerErrorLine(
   }
   for (let i = lines.length - 1; i >= 0; i -= 1) {
     const line = lines[i] ?? ''
-    if (/^(error|warning|note):/i.test(line) || /seems corrupt/i.test(line)) {
+    if (/^error:/i.test(line) || /seems corrupt/i.test(line)) {
       return line
     }
   }

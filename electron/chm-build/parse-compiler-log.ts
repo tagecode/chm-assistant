@@ -47,10 +47,14 @@ export function parseCompilerLogLine(
 ): CompileLogLine {
   const trimmed = raw.trim()
   let level: CompileLogLevel = 'info'
-  if (/\berror\b/i.test(trimmed) || /\bfatal\b/i.test(trimmed)) {
+  if (/^error:/i.test(trimmed) || /\bfatal\b/i.test(trimmed)) {
     level = 'error'
-  } else if (/\bwarn/i.test(trimmed)) {
+  } else if (/^warning:/i.test(trimmed) || /\bwarn/i.test(trimmed)) {
     level = 'warn'
+  } else if (/^note:/i.test(trimmed)) {
+    level = 'info'
+  } else if (/\berror\b/i.test(trimmed)) {
+    level = 'error'
   }
 
   // file.htm(12) : error HHCxxxx: message
