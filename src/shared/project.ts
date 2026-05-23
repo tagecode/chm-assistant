@@ -24,6 +24,8 @@ export interface ChmProjectCompileOptions {
   /** 输出文件名，默认 `<title>.chm` */
   outputFile?: string
   openAfterCompile?: boolean
+  /** 整包 GBK/Big5 中间文件，兼容 Windows hh.exe 目录/索引（见 docs/compiler-setup.md） */
+  windowsViewerCompat?: boolean
 }
 
 export interface ChmProjectConfig {

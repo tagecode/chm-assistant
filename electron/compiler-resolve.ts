@@ -173,6 +173,27 @@ export function resolveChmCompiler(customPath: string | null): ResolvedCompiler 
   return resolveChmcmd(null)
 }
 
+/**
+ * 编译时解析编译器。legacyAnsiEncoding 为 true 时（Windows 查看器兼容 / GBK 工程），
+ * 未指定自定义路径则优先 hhc.exe，避免 UTF-8 系统上的 chmcmd 误读 GBK 中间文件。
+ */
+export function resolveChmCompilerForBuild(
+  customPath: string | null,
+  opts?: { legacyAnsiEncoding?: boolean },
+): ResolvedCompiler | null {
+  const trimmed = customPath?.trim() || null
+  if (trimmed) {
+    return resolveCustomCompiler(trimmed)
+  }
+  if (opts?.legacyAnsiEncoding && process.platform === 'win32') {
+    const hhc = resolveWindowsHhc(null)
+    if (hhc) {
+      return hhc
+    }
+  }
+  return resolveChmCompiler(null)
+}
+
 export function getCompilerStatus(customPath: string | null): CompilerStatus {
   const trimmed = customPath?.trim() || null
   const resolved = resolveChmCompiler(trimmed)

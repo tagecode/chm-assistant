@@ -97,6 +97,9 @@ export const zhHant: Record<MessageKey, string> = {
   'composer.meta.language': '語言（如 zh-Hant）',
   'composer.meta.defaultPage': '預設頁（Markdown 路徑）',
   'composer.meta.openAfterCompile': '編譯完成後用閱讀器開啟',
+  'composer.meta.windowsViewerCompat': '相容 Windows 說明檢視器',
+  'composer.meta.windowsViewerCompatHint':
+    '將 HTML 與目錄/索引轉為 GBK/Big5，以便 Windows hh.exe 顯示中文。須使用 hhc.exe 編譯（UTF-8 Beta 系統上 chmcmd 無法產生有效 CHM）。未安裝時可在設定中下載 HTML Help Workshop 並指定 hhc.exe 路徑。',
   'composer.error.noElectron': '創作功能需在 Electron 桌面環境中執行。',
   'composer.error.saveFailed': '儲存失敗',
   'composer.importAssets': '匯入資源',

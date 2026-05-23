@@ -26,6 +26,13 @@ const electronApi: ElectronApi = {
     ipcRenderer.invoke('project:create', { rootPath, title }),
   openChmSession: (filePath) => ipcRenderer.invoke('chm:open-session', filePath),
   closeChmSession: (sessionId) => ipcRenderer.invoke('chm:close-session', sessionId),
+  onCloseChmForPath: (handler) => {
+    const listener = (_e: unknown, filePath: string) => handler(filePath)
+    ipcRenderer.on('chm:close-for-path', listener)
+    return () => {
+      ipcRenderer.removeListener('chm:close-for-path', listener)
+    }
+  },
   searchChmSession: (sessionId, query) =>
     ipcRenderer.invoke('chm:search', sessionId, query),
   getWorkspaceSession: () => ipcRenderer.invoke('workspace:get'),

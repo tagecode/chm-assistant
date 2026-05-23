@@ -29,6 +29,7 @@ function flatten(nodes: ProjectTocNode[]): { title: string; mdPath: string }[] {
 export function generateHhk(
   toc: ProjectTocNode[],
   mdToHtmlRel: (mdPath: string) => string,
+  opts?: { metaCharset?: string },
 ): string {
   const entries = flatten(toc)
   const items = entries
@@ -43,7 +44,7 @@ export function generateHhk(
   return `<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
 <HTML>
 <HEAD>
-<meta name="GENERATOR" content="CHM Assistant">
+${navHeadMeta(opts?.metaCharset)}
 </HEAD>
 <BODY>
 <UL>
@@ -52,5 +53,13 @@ ${items}
 </BODY>
 </HTML>
 `
+}
+
+function navHeadMeta(charset?: string): string {
+  const lines = ['<meta name="GENERATOR" content="CHM Assistant">']
+  if (charset) {
+    lines.unshift(`<meta http-equiv="Content-Type" content="text/html; charset=${charset}">`)
+  }
+  return lines.join('\n')
 }
 

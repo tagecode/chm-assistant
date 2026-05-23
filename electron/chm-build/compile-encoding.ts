@@ -1,9 +1,22 @@
+import fs from 'node:fs'
+import path from 'node:path'
+
+import iconv from 'iconv-lite'
 import { execSync } from 'node:child_process'
+
+export type CompileTextEncoding = 'utf-8' | 'gb18030' | 'cp950'
+
+export type CompileEncodingProfile = {
+  encoding: CompileTextEncoding
+  /** HHP [OPTIONS] Charset */
+  charset: string
+  htmlMetaCharset: string
+  htmlLang: string
+}
 
 /**
  * 读取 Windows 系统 ANSI 代码页（ACP，即 Win32 GetACP）。
  * 936 = 简体中文 GBK；950 = 繁体 Big5；65001 = 「Beta: UTF-8 全球语言」已开启。
- * 非 Windows 或检测失败时返回 null。
  */
 export function detectWindowsAnsiCodePage(): number | null {
   if (process.platform !== 'win32') {
@@ -21,67 +34,139 @@ export function detectWindowsAnsiCodePage(): number | null {
   }
 }
 
-/**
- * chmcmd（Free Pascal）按系统 ACP 读取 .hhp/.hhc/.hhk 字节。
- * Windows hh.exe 对目录/索引则更接近 Language LCID 对应的传统 ANSI 页（如 0x804 → 936）。
- * 二者在「UTF-8 Beta 已开」的现代 Windows 上无法靠单一编码同时最优。
- */
-export type CompileNavEncodingStrategy = 'utf-8' | 'system-acp' | 'legacy-zh-gbk'
-
-export function evaluateNavEncodingOptions(opts: {
-  platform: NodeJS.Platform
-  ansiCodePage: number | null
-  compilerKind: 'hhc' | 'chmcmd'
-  projectLanguage: string
-}): {
-  recommended: CompileNavEncodingStrategy
-  reason: string
-  appReaderOk: boolean
-  windowsHhExeTocOk: 'likely' | 'unlikely' | 'unknown'
-} {
-  const isZh = opts.projectLanguage.toLowerCase().startsWith('zh')
-  const cp = opts.ansiCodePage
-
-  if (opts.compilerKind === 'chmcmd') {
-    if (cp === 65001) {
-      return {
-        recommended: 'utf-8',
-        reason:
-          'chmcmd 在 UTF-8 系统 (ACP 65001) 下按 UTF-8 读工程文件；与当前应用阅读器一致。',
-        appReaderOk: true,
-        windowsHhExeTocOk: 'unlikely',
-      }
-    }
-    if (cp === 936 && isZh) {
-      return {
-        recommended: 'system-acp',
-        reason:
-          'chmcmd 在 GBK 系统 (ACP 936) 下按 GBK 读工程；与 hh.exe 目录/索引期望较一致，但 HTML 须同为 GBK 或需实测。',
-        appReaderOk: true,
-        windowsHhExeTocOk: 'likely',
-      }
-    }
+/** 根据项目选项解析编译中间文件编码（整包一致：HTML + .hhc/.hhk/.hhp）。 */
+export function resolveCompileEncodingProfile(
+  language: string,
+  windowsViewerCompat: boolean,
+): CompileEncodingProfile {
+  if (!windowsViewerCompat) {
     return {
-      recommended: 'utf-8',
-      reason: 'chmcmd 默认优先 UTF-8 中间文件 + Charset=65001，与应用阅读器已验证路径一致。',
-      appReaderOk: true,
-      windowsHhExeTocOk: isZh ? 'unlikely' : 'unknown',
+      encoding: 'utf-8',
+      charset: '65001',
+      htmlMetaCharset: 'UTF-8',
+      htmlLang: languageToHtmlLang(language),
     }
   }
-
-  // hhc.exe
-  if (isZh) {
+  const l = language.toLowerCase()
+  if (l.startsWith('zh-hant') || l === 'zh-tw' || l === 'zh-hk') {
     return {
-      recommended: 'legacy-zh-gbk',
-      reason: 'hhc.exe 对中文目录/索引 historically 需要 GBK 工程文件 (Charset=936)。',
-      appReaderOk: true,
-      windowsHhExeTocOk: 'likely',
+      encoding: 'cp950',
+      charset: '950',
+      htmlMetaCharset: 'Big5',
+      htmlLang: 'zh-TW',
+    }
+  }
+  if (l.startsWith('zh')) {
+    return {
+      encoding: 'gb18030',
+      charset: '936',
+      htmlMetaCharset: 'GB2312',
+      htmlLang: 'zh-CN',
     }
   }
   return {
-    recommended: cp === 65001 ? 'utf-8' : 'system-acp',
-    reason: 'hhc 非中文项目可跟随系统 ACP 或 UTF-8。',
-    appReaderOk: true,
-    windowsHhExeTocOk: 'unknown',
+    encoding: 'utf-8',
+    charset: '65001',
+    htmlMetaCharset: 'UTF-8',
+    htmlLang: languageToHtmlLang(language),
   }
+}
+
+function languageToHtmlLang(language: string): string {
+  const l = language.toLowerCase()
+  if (l.startsWith('zh-hant') || l === 'zh-tw' || l === 'zh-hk') {
+    return 'zh-TW'
+  }
+  if (l.startsWith('zh')) {
+    return 'zh-CN'
+  }
+  if (l.startsWith('en')) {
+    return 'en'
+  }
+  return language.replace('_', '-')
+}
+
+/** .hhp 中是否写入 Charset 及取值。 */
+export function resolveHhpCharset(
+  profile: CompileEncodingProfile,
+  compilerKind: 'hhc' | 'chmcmd',
+): string | undefined {
+  if (profile.encoding !== 'utf-8') {
+    return profile.charset
+  }
+  if (compilerKind === 'chmcmd') {
+    return '65001'
+  }
+  return undefined
+}
+
+export function writeCompileTextFile(
+  filePath: string,
+  content: string,
+  encoding: CompileTextEncoding,
+): void {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true })
+  if (encoding === 'utf-8') {
+    fs.writeFileSync(filePath, content, { encoding: 'utf8' })
+    return
+  }
+  fs.writeFileSync(filePath, iconv.encode(content, encoding))
+}
+
+export function encodingLabel(profile: CompileEncodingProfile): string {
+  if (profile.encoding === 'gb18030') {
+    return 'GBK (936)'
+  }
+  if (profile.encoding === 'cp950') {
+    return 'Big5 (950)'
+  }
+  return 'UTF-8 (65001)'
+}
+
+export type ResolvedCompilerKind = 'hhc' | 'chmcmd'
+
+/** Windows 查看器兼容（GBK/Big5 工程）与编译器组合校验。 */
+export function validateLegacyEncodingCompile(
+  profile: CompileEncodingProfile,
+  compilerKind: ResolvedCompilerKind,
+): { ok: true } | { ok: false; message: string } {
+  if (profile.encoding === 'utf-8') {
+    return { ok: true }
+  }
+  if (compilerKind === 'hhc') {
+    return { ok: true }
+  }
+  if (process.platform !== 'win32') {
+    return {
+      ok: false,
+      message:
+        'Windows 查看器兼容模式（GBK/Big5）目前仅支持在 Windows 上使用 hhc.exe 编译。请在本机安装 HTML Help Workshop，或在 Windows 设置中指定 hhc.exe 路径。',
+    }
+  }
+  const acp = detectWindowsAnsiCodePage()
+  if (acp === 65001) {
+    return {
+      ok: false,
+      message:
+        '当前 Windows 已启用 UTF-8 (ACP 65001)，内置 chmcmd 无法正确编译 GBK 工程（会导致 CHM 损坏）。请安装 HTML Help Workshop 并在设置中指定 hhc.exe，或关闭「兼容 Windows 帮助查看器」后使用默认 UTF-8 编译。',
+    }
+  }
+  if (acp === 936 || acp === 950) {
+    return { ok: true }
+  }
+  return {
+    ok: false,
+    message:
+      'Windows 查看器兼容模式需要 hhc.exe，或系统代码页为简体中文 (936) / 繁体 (950) 且使用 chmcmd。请安装 HTML Help Workshop 或在设置中指定 hhc.exe。',
+  }
+}
+
+export function defaultFontForCharset(charset: string | undefined): string | undefined {
+  if (charset === '936') {
+    return 'Microsoft YaHei,9,134'
+  }
+  if (charset === '950') {
+    return 'Microsoft JhengHei,9,136'
+  }
+  return undefined
 }

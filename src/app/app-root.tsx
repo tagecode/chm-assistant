@@ -339,6 +339,48 @@ function AppInner() {
     })
   }, [])
 
+  const closeReaderTabsForChmPath = useCallback(
+    (filePath: string) => {
+      const platform = metadata.platform
+      setTabs((prev) => {
+        const removing = prev.filter(
+          (t) =>
+            t.kind === 'reader' &&
+            findTabByPath([t], 'reader', filePath, platform) != null,
+        )
+        if (removing.length === 0) {
+          return prev
+        }
+        for (const tab of removing) {
+          if (tab.kind === 'reader') {
+            void window.electronAPI?.closeChmSession(tab.sessionId)
+          }
+        }
+        const removeIds = new Set(removing.map((t) => t.id))
+        const next = prev.filter((t) => !removeIds.has(t.id))
+        setActiveTabId((cur) => {
+          if (cur && removeIds.has(cur)) {
+            return next[next.length - 1]?.id ?? null
+          }
+          return cur
+        })
+        if (next.length === 0) {
+          setScreen('home')
+        }
+        return next
+      })
+    },
+    [metadata.platform],
+  )
+
+  useEffect(() => {
+    const api = window.electronAPI
+    if (!api) return
+    return api.onCloseChmForPath((filePath) => {
+      closeReaderTabsForChmPath(filePath)
+    })
+  }, [closeReaderTabsForChmPath])
+
   const requestCloseTab = useCallback(
     (id: string) => {
       const victim = tabs.find((x) => x.id === id)

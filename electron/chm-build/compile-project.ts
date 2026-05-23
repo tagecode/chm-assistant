@@ -11,34 +11,87 @@ import {
   listAllMdPaths,
   readUtf8NoBom,
   resolveMdPath,
-  writeUtf8NoBom,
 } from '../project-fs'
 import { generateHhc } from './hhc-generator'
 import { generateHhk } from './hhk-generator'
 import { generateHhp } from './hhp-generator'
+import {
+  defaultFontForCharset,
+  encodingLabel,
+  resolveCompileEncodingProfile,
+  resolveHhpCharset,
+  validateLegacyEncodingCompile,
+  writeCompileTextFile,
+} from './compile-encoding'
 import { markdownToCompileHtmlBody, wrapHtmlDocument } from './md-to-html'
 import { parseCompilerLogLine } from './parse-compiler-log'
 import {
   compilerOutputIndicatesFailure,
   pickCompilerErrorLine,
 } from './compiler-output'
-import { getCompilerStatus, resolveChmCompiler, runChmCompiler } from './compiler'
+import { getCompilerStatus, resolveChmCompilerForBuild, runChmCompiler } from './compiler'
 import {
   buildMdToBuildHtmlMap,
   copyResourcesToBuild,
   gatherAllProjectResources,
 } from '../project-resources'
+import { closeChmSessionsForPath } from '../chm-reader-service'
 
 const BUILD_DIR_NAME = '.chm-build'
 const HHC_NAME = 'toc.hhc'
 const HHK_NAME = 'index.hhk'
 const HHP_NAME = 'project.hhp'
 
+const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
+
+export function resolveProjectChmOutputPath(
+  rootPath: string,
+  config: ChmProjectConfig,
+): string {
+  const outputName =
+    config.compile?.outputFile?.trim() ||
+    `${config.title.replace(/[<>:"/\\|?*]/g, '_') || 'output'}.chm`
+  return path.join(rootPath, 'dist', outputName)
+}
+
+/** 释放输出 CHM 路径：关闭阅读会话并删除旧文件（含重试）。 */
+export async function releaseChmOutputFile(
+  chmPath: string,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  closeChmSessionsForPath(chmPath)
+  if (!fs.existsSync(chmPath)) {
+    return { ok: true }
+  }
+  for (let attempt = 0; attempt < 10; attempt++) {
+    try {
+      fs.unlinkSync(chmPath)
+      return { ok: true }
+    } catch {
+      closeChmSessionsForPath(chmPath)
+      if (attempt < 9) {
+        await delay(120)
+      }
+    }
+  }
+  return {
+    ok: false,
+    message: `无法写入 ${chmPath}：文件正被占用。请关闭本应用中该 CHM 的阅读标签、Windows 帮助查看器（hh.exe）或其他程序后重试。`,
+  }
+}
+
 function formatCompileFailureMessage(
   code: number,
   detail: string,
   kind: 'hhc' | 'chmcmd',
 ): string {
+  if (/EFCreateError|Unable to create file/i.test(detail)) {
+    const fileMatch = detail.match(/"([^"]+\.chm)"/i)
+    const file = fileMatch?.[1] ?? '输出 CHM 文件'
+    return (
+      `编译失败（退出码 ${code}）：无法创建 ${file}。\n` +
+      '该文件可能正被本应用阅读器、Windows 帮助查看器（hh.exe）或其他程序占用，请关闭后重新编译。'
+    )
+  }
   if (/HHC6003/i.test(detail)) {
     return (
       `编译失败（退出码 ${code}）：${detail}\n` +
@@ -139,6 +192,33 @@ export async function compileProject(
 
   emit({ level: 'info', message: '正在将 Markdown 转换为 HTML…' })
 
+  const windowsViewerCompat = config.compile?.windowsViewerCompat === true
+  const encProfile = resolveCompileEncodingProfile(config.language, windowsViewerCompat)
+  const legacyAnsi = encProfile.encoding !== 'utf-8'
+  const compiler = resolveChmCompilerForBuild(customCompilerPath, {
+    legacyAnsiEncoding: legacyAnsi,
+  })
+  if (!compiler) {
+    const err = 'COMPILER_NOT_FOUND'
+    emit({ level: 'error', message: err })
+    return { ok: false, error: err, logs }
+  }
+
+  if (windowsViewerCompat) {
+    emit({
+      level: 'info',
+      message: `已启用 Windows 查看器兼容模式，中间文件编码：${encodingLabel(encProfile)}`,
+    })
+    if (compiler.kind === 'hhc') {
+      emit({ level: 'info', message: `使用 hhc.exe 编译：${compiler.cmd}` })
+    }
+    const legacyCheck = validateLegacyEncodingCompile(encProfile, compiler.kind)
+    if (!legacyCheck.ok) {
+      emit({ level: 'error', message: legacyCheck.message })
+      return { ok: false, error: legacyCheck.message, logs }
+    }
+  }
+
   const mdToBuildHtml = buildMdToBuildHtmlMap(mdPaths)
   const compilePathMap = new Map<string, string>(resourcePathMap)
   for (const [md, html] of mdToBuildHtml) {
@@ -177,8 +257,11 @@ export async function compileProject(
       mdNorm,
       compilePathMap,
     )
-    const doc = wrapHtmlDocument(title, body)
-    writeUtf8NoBom(absHtml, doc)
+    const doc = wrapHtmlDocument(title, body, {
+      metaCharset: encProfile.htmlMetaCharset,
+      lang: encProfile.htmlLang,
+    })
+    writeCompileTextFile(absHtml, doc, encProfile.encoding)
     htmlFiles.push(htmlRel)
     emit({ level: 'info', message: `已生成 ${htmlRel}`, sourcePath: mdRel })
   }
@@ -206,20 +289,20 @@ export async function compileProject(
   }
 
   emit({ level: 'info', message: '正在生成 .hhc / .hhk / .hhp…' })
-  writeUtf8NoBom(path.join(buildDir, HHC_NAME), generateHhc(config.toc, mdToHtml))
-  writeUtf8NoBom(path.join(buildDir, HHK_NAME), generateHhk(config.toc, mdToHtml))
+  const navMeta = legacyAnsi ? encProfile.htmlMetaCharset : undefined
+  writeCompileTextFile(
+    path.join(buildDir, HHC_NAME),
+    generateHhc(config.toc, mdToHtml, { metaCharset: navMeta }),
+    encProfile.encoding,
+  )
+  writeCompileTextFile(
+    path.join(buildDir, HHK_NAME),
+    generateHhk(config.toc, mdToHtml, { metaCharset: navMeta }),
+    encProfile.encoding,
+  )
 
-  const outputName =
-    config.compile?.outputFile?.trim() ||
-    `${config.title.replace(/[<>:"/\\|?*]/g, '_') || 'output'}.chm`
-  const chmPath = path.join(distDir, outputName)
-  const compiler = resolveChmCompiler(customCompilerPath)
-  if (!compiler) {
-    const err = 'COMPILER_NOT_FOUND'
-    emit({ level: 'error', message: err })
-    return { ok: false, error: err, logs }
-  }
-
+  const chmPath = resolveProjectChmOutputPath(rootPath, config)
+  const hhpCharset = resolveHhpCharset(encProfile, compiler.kind)
   const hhp = generateHhp(config, {
     buildDir,
     compiledFile: chmPath,
@@ -231,16 +314,24 @@ export async function compileProject(
       path.join(buildDir, HHC_NAME),
       path.join(buildDir, HHK_NAME),
     ],
-    compilerKind: compiler.kind,
+    hhpCharset,
+    defaultFont: defaultFontForCharset(hhpCharset),
   })
   const hhpPath = path.join(buildDir, HHP_NAME)
-  writeUtf8NoBom(hhpPath, hhp)
+  writeCompileTextFile(hhpPath, hhp, encProfile.encoding)
+
+  const released = await releaseChmOutputFile(chmPath)
+  if (!released.ok) {
+    emit({ level: 'error', message: released.message })
+    return { ok: false, error: released.message, logs }
+  }
 
   emit({ level: 'info', message: '正在调用外部 CHM 编译器…' })
   const { code, stdout, stderr } = await runChmCompiler(
     hhpPath,
     buildDir,
     customCompilerPath,
+    compiler,
   )
   const emitCompilerLine = (line: string) => {
     const parsed = parseCompilerLogLine(line, logCtx)

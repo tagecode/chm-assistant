@@ -14,6 +14,7 @@ import {
 } from './chm-reader-service'
 import { searchChmSessionAsync } from './chm-search'
 import { getCompilerStatus } from './compiler-resolve'
+import { resolveProjectChmOutputPath } from './chm-build/compile-project'
 import { createProjectInDirectory } from './project-bootstrap'
 import {
   buildMarkdownPreviewHtml,
@@ -478,6 +479,12 @@ function registerIpcHandlers() {
     'project:compile',
     async (event, payload: { rootPath: string; config: ChmProjectConfig }) => {
       const sender = event.sender
+      const chmPath = resolveProjectChmOutputPath(payload.rootPath, payload.config)
+      for (const win of BrowserWindow.getAllWindows()) {
+        win.webContents.send('chm:close-for-path', chmPath)
+      }
+      await new Promise<void>((resolve) => setTimeout(resolve, 150))
+
       const onProgress = (line: CompileLogLine) => {
         sender.send('project:compile-log', line)
       }

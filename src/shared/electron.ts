@@ -146,6 +146,8 @@ export interface ElectronApi {
   ) => Promise<{ ok: boolean; error?: string }>
   openChmSession: (filePath: string) => Promise<ChmOpenResult>
   closeChmSession: (sessionId: string) => Promise<void>
+  /** 编译前关闭占用该路径的阅读标签（主进程广播） */
+  onCloseChmForPath: (handler: (filePath: string) => void) => () => void
   searchChmSession: (
     sessionId: string,
     query: string,

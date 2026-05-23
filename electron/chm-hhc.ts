@@ -3,7 +3,7 @@ import path from 'node:path'
 import { parse, type HTMLElement } from 'node-html-parser'
 
 import type { ChmTocItem } from '../src/shared/electron'
-import { decodeChmText } from './chm-text'
+import { decodeChmNavText } from './chm-text'
 import { normalizeChmInternalPath } from './chm-path'
 
 export interface ReadChmObject {
@@ -110,7 +110,7 @@ function walkUl(
       const { path: mergePath } = resolveLocalToInternal(hhcInternalPath, objParams.merge)
       const mb = readObject(mergePath)
       if (mb) {
-        const html = decodeChmText(mb, readerEncodingPref, true)
+        const html = decodeChmNavText(mb, readerEncodingPref)
         merged.push(...parseHhcToTree(html, mergePath, readObject, readerEncodingPref))
       }
     }

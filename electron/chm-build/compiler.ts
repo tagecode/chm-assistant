@@ -1,11 +1,12 @@
 import { spawn } from 'node:child_process'
 import path from 'node:path'
 
-import { resolveChmCompiler } from '../compiler-resolve'
+import { resolveChmCompiler, type ResolvedCompiler } from '../compiler-resolve'
 
 export {
   getCompilerStatus,
   resolveChmCompiler,
+  resolveChmCompilerForBuild,
   HTML_HELP_WORKSHOP_DOWNLOAD_URL,
   HTML_HELP_WORKSHOP_DOWNLOAD_URL_BACKUP,
   HTML_HELP_WORKSHOP_DOWNLOAD_URLS,
@@ -16,8 +17,9 @@ export function runChmCompiler(
   hhpPath: string,
   cwd: string,
   customCompilerPath: string | null,
+  compilerOverride?: ResolvedCompiler | null,
 ): Promise<{ code: number; stdout: string; stderr: string }> {
-  const compiler = resolveChmCompiler(customCompilerPath)
+  const compiler = compilerOverride ?? resolveChmCompiler(customCompilerPath)
   if (!compiler) {
     return Promise.resolve({
       code: 127,

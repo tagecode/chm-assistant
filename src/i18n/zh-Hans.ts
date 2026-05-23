@@ -94,6 +94,9 @@ export const zhHans = {
   'composer.meta.language': '语言（如 zh-Hans）',
   'composer.meta.defaultPage': '默认页（Markdown 路径）',
   'composer.meta.openAfterCompile': '编译完成后用阅读器打开',
+  'composer.meta.windowsViewerCompat': '兼容 Windows 帮助查看器',
+  'composer.meta.windowsViewerCompatHint':
+    '将 HTML 与目录/索引转为 GBK/Big5，便于 Windows hh.exe 显示中文。须使用 hhc.exe 编译（UTF-8 Beta 系统上 chmcmd 无法生成有效 CHM）。未安装时可在设置中下载 HTML Help Workshop 并指定 hhc.exe 路径。',
   'composer.error.noElectron': '创作功能需在 Electron 桌面环境中运行。',
   'composer.error.saveFailed': '保存失败',
   'composer.importAssets': '导入资源',

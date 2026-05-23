@@ -1,7 +1,6 @@
 import path from 'node:path'
 
 import type { ChmProjectConfig } from '../../src/shared/project'
-import type { CompilerKind } from '../compiler-resolve'
 
 function languageCode(lang: string): string {
   const l = lang.toLowerCase()
@@ -32,7 +31,10 @@ export function generateHhp(
     indexFile: string
     defaultTopicHtml: string
     htmlFiles: string[]
-    compilerKind: CompilerKind
+    /** 若设置则写入 HHP Charset=… */
+    hhpCharset?: string
+    /** 简体中文 134 / 繁体 136 等 */
+    defaultFont?: string
   },
 ): string {
   const lines: string[] = [
@@ -50,8 +52,13 @@ export function generateHhp(
     ...opts.htmlFiles.map((f) => toHhpBuildRelPath(opts.buildDir, f)),
     '',
   ]
-  if (opts.compilerKind === 'chmcmd') {
-    lines.splice(8, 0, 'Charset=65001')
+  let insertAt = 8
+  if (opts.hhpCharset) {
+    lines.splice(insertAt, 0, `Charset=${opts.hhpCharset}`)
+    insertAt++
+  }
+  if (opts.defaultFont) {
+    lines.splice(insertAt, 0, `Default Font=${opts.defaultFont}`)
   }
   return `${lines.join('\r\n')}\r\n`
 }

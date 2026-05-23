@@ -7,7 +7,7 @@ import { normalizeChmInternalPath } from './chm-path'
 import { getChmAddon } from './chm-native'
 import { resolveChmFsPath } from './chm-fs'
 import { findSystemInternalPath, parseChmSystem } from './chm-system'
-import { decodeChmText, htmlToPlainText } from './chm-text'
+import { decodeChmNavText, decodeChmText, htmlToPlainText } from './chm-text'
 import { enrichTocTitles } from './chm-toc-enrich'
 
 export interface SessionRecord {
@@ -136,7 +136,7 @@ export function openChmSession(rawPath: string, readerEncodingPref = 'auto'): Ch
   if (hhcInternal) {
     const hhcBuf = readObject(hhcInternal)
     if (hhcBuf) {
-      const html = decodeChmText(hhcBuf, readerEncodingPref, true)
+      const html = decodeChmNavText(hhcBuf, readerEncodingPref)
       try {
         const tree = parseHhcToTree(html, hhcInternal, readObject, readerEncodingPref)
         if (tree.length > 0) {
@@ -162,7 +162,7 @@ export function openChmSession(rawPath: string, readerEncodingPref = 'auto'): Ch
   if (hhkInternal) {
     const hhkBuf = readObject(hhkInternal)
     if (hhkBuf) {
-      const html = decodeChmText(hhkBuf, readerEncodingPref, true)
+      const html = decodeChmNavText(hhkBuf, readerEncodingPref)
       try {
         index = parseHhkToEntries(html, hhkInternal, readObject, readerEncodingPref)
       } catch {
@@ -236,6 +236,23 @@ export function closeChmSession(sessionId: string): void {
   getChmAddon()?.closeChm(sessionId)
   openSessions.delete(sessionId)
   sessionRecords.delete(sessionId)
+}
+
+/** 关闭所有正在占用该路径的 CHM 阅读会话（释放 CHMLib 文件锁）。 */
+export function closeChmSessionsForPath(rawPath: string): number {
+  const resolved = resolveChmFsPath(rawPath)
+  const targetNorm = resolved.ok
+    ? path.normalize(resolved.path).toLowerCase()
+    : path.normalize(path.resolve(rawPath)).toLowerCase()
+
+  let closed = 0
+  for (const [sid, rec] of sessionRecords.entries()) {
+    if (path.normalize(rec.filePath).toLowerCase() === targetNorm) {
+      closeChmSession(sid)
+      closed++
+    }
+  }
+  return closed
 }
 
 /** 进程退出前释放 CHMLib 句柄（例如用户直接 Cmd+Q） */

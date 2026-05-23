@@ -36,15 +36,24 @@ function renderUl(nodes: ProjectTocNode[], mdToHtml: (mdPath: string) => string)
   return `<UL>\n${items}\n</UL>`
 }
 
+function navHeadMeta(charset?: string): string {
+  const lines = ['<meta name="GENERATOR" content="CHM Assistant">']
+  if (charset) {
+    lines.unshift(`<meta http-equiv="Content-Type" content="text/html; charset=${charset}">`)
+  }
+  return lines.join('\n')
+}
+
 export function generateHhc(
   toc: ProjectTocNode[],
   mdToHtmlRel: (mdPath: string) => string,
+  opts?: { metaCharset?: string },
 ): string {
   const body = renderUl(toc, mdToHtmlRel)
   return `<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
 <HTML>
 <HEAD>
-<meta name="GENERATOR" content="CHM Assistant">
+${navHeadMeta(opts?.metaCharset)}
 </HEAD>
 <BODY>
 ${body || '<UL></UL>'}

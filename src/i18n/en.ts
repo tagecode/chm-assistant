@@ -99,6 +99,9 @@ export const en: Record<MessageKey, string> = {
   'composer.meta.language': 'Language (e.g. en)',
   'composer.meta.defaultPage': 'Default page (Markdown path)',
   'composer.meta.openAfterCompile': 'Open in reader after build',
+  'composer.meta.windowsViewerCompat': 'Compatible with Windows Help Viewer',
+  'composer.meta.windowsViewerCompatHint':
+    'Encode HTML and TOC/index as GBK/Big5 for Windows hh.exe. Requires hhc.exe (chmcmd cannot build valid legacy CHM on UTF-8 Beta Windows). Install HTML Help Workshop and set hhc.exe in Settings if needed.',
   'composer.error.noElectron': 'Composer requires the Electron desktop app.',
   'composer.error.saveFailed': 'Save failed',
   'composer.importAssets': 'Import assets',

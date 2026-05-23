@@ -38,7 +38,7 @@ function looksLikeValidUtf8(buf: Buffer): boolean {
 }
 
 /** auto 模式下的启发式：meta charset → BOM → UTF-8 合法性 → GB 系高字节占比 */
-export function detectEncodingHeuristic(buf: Buffer, isHtml: boolean): 'utf-8' | 'gb18030' {
+export function detectEncodingHeuristic(buf: Buffer, isHtml: boolean): 'utf-8' | 'gb18030' | 'cp950' {
   const body = stripBom(buf)
   if (isHtml) {
     const tag = sniffHtmlCharset(body)?.toLowerCase() ?? ''
@@ -47,6 +47,9 @@ export function detectEncodingHeuristic(buf: Buffer, isHtml: boolean): 'utf-8' |
       (tag.includes('gb') || tag === 'windows-936' || tag === 'gbk' || tag === 'gb2312')
     ) {
       return 'gb18030'
+    }
+    if (tag.includes('big5') || tag === 'cp950') {
+      return 'cp950'
     }
     if (tag.includes('utf-8') || tag === 'utf8') {
       return 'utf-8'
@@ -94,6 +97,9 @@ export function transcodeBuffer(buf: Buffer, pref: string, isHtml: boolean): Buf
     if (detected === 'gb18030') {
       return Buffer.from(iconv.decode(body, 'gb18030'), 'utf8')
     }
+    if (detected === 'cp950') {
+      return Buffer.from(iconv.decode(body, 'cp950'), 'utf8')
+    }
     return body
   }
   const tag = isHtml ? sniffHtmlCharset(body)?.toLowerCase() : null
@@ -104,6 +110,55 @@ export function transcodeBuffer(buf: Buffer, pref: string, isHtml: boolean): Buf
     return Buffer.from(iconv.decode(body, 'gb18030'), 'utf8')
   }
   return body
+}
+
+function countCjk(s: string): number {
+  let n = 0
+  for (const ch of s) {
+    const c = ch.codePointAt(0) ?? 0
+    if (c >= 0x4e00 && c <= 0x9fff) {
+      n++
+    }
+  }
+  return n
+}
+
+/** 目录/索引（.hhc/.hhk）在 CHM 内常为 GBK/Big5，单独加强解码。 */
+export function decodeChmNavText(buf: Buffer, readerEncodingPref: string): string {
+  const body = stripBom(buf)
+  if (readerEncodingPref === 'utf-8') {
+    return body.toString('utf8')
+  }
+  if (readerEncodingPref === 'gb18030') {
+    return Buffer.from(iconv.decode(body, 'gb18030'), 'utf8').toString('utf8')
+  }
+
+  const tag = sniffHtmlCharset(body)?.toLowerCase() ?? ''
+  if (tag.includes('big5') || tag === 'cp950') {
+    return Buffer.from(iconv.decode(body, 'cp950'), 'utf8').toString('utf8')
+  }
+  if (
+    tag.includes('gb') ||
+    tag === 'gb2312' ||
+    tag === 'gbk' ||
+    tag === 'windows-936'
+  ) {
+    return Buffer.from(iconv.decode(body, 'gb18030'), 'utf8').toString('utf8')
+  }
+  if (tag.includes('utf-8') || tag === 'utf8') {
+    return body.toString('utf8')
+  }
+
+  if (!looksLikeValidUtf8(body)) {
+    return Buffer.from(iconv.decode(body, 'gb18030'), 'utf8').toString('utf8')
+  }
+
+  const asUtf8 = body.toString('utf8')
+  const asGbk = iconv.decode(body, 'gb18030')
+  if (countCjk(asGbk) > countCjk(asUtf8)) {
+    return Buffer.from(asGbk, 'utf8').toString('utf8')
+  }
+  return asUtf8
 }
 
 export function decodeChmText(buf: Buffer, readerEncodingPref: string, isHtml: boolean): string {

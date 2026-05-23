@@ -831,6 +831,27 @@ export function ComposerView({
               />
               {t('composer.meta.openAfterCompile')}
             </label>
+            <div className="grid gap-1">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={config.compile?.windowsViewerCompat === true}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      compile: {
+                        ...config.compile,
+                        windowsViewerCompat: e.target.checked,
+                      },
+                    })
+                  }
+                />
+                {t('composer.meta.windowsViewerCompat')}
+              </label>
+              <p className="text-xs text-muted-foreground">
+                {t('composer.meta.windowsViewerCompatHint')}
+              </p>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setMetaOpen(false)}>

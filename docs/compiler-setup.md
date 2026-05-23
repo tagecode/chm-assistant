@@ -148,16 +148,13 @@ Windows 上可通过 `[System.Text.Encoding]::Default.CodePage`（即 GetACP）�
 - `chcp` 反映的是 **控制台** OEM 页，可能被 `chcp 65001` 临时改掉，**不应**用作编译依据。
 - 代码页只描述 **本机**；分发给其他 Windows 用户的 CHM 仍可能在其机器上表现不同。
 
-### 推荐产品策略（待 CR-08 落地）
+### 推荐产品策略（CR-08）
 
-1. **默认（当前）**：UTF-8 中间文件 + `Charset=65001`（chmcmd）→ **本应用优先**，`hh.exe` 侧栏中文可能乱码。
-2. **项目选项「兼容 Windows 帮助查看器」**（进阶）：整包转 **GBK**（含 HTML 与 `.hhc/.hhk/.hhp`，`Charset=936`），建议 **hhc.exe** 或 ACP=936 环境编译；编译前 UI 明确提示本应用仍可读、但文件体积与工具链限制。
-3. **自动策略（若做）**：`编译器种类` × `系统 ACP` × `用户目标` 三维判断，例如：
-   - chmcmd + ACP 65001 → UTF-8（现状）
-   - chmcmd + ACP 936 + 用户勾选 Windows 兼容 → 全 GBK
-   - hhc.exe + 中文项目 → GBK 工程文件
+1. **默认**：UTF-8 中间文件 + `Charset=65001`（chmcmd）→ **本应用优先**，`hh.exe` 侧栏中文可能乱码。
+2. **项目元数据 →「兼容 Windows 帮助查看器」**（已实现）：整包 **GBK/Big5**（HTML + `.hhc/.hhk/.hhp`，`Charset=936/950`）。编译日志在 ACP=65001 时会提示改用 **hhc.exe**。
+3. **自动策略（未做）**：编译器 × 系统 ACP × 用户目标 三维判断。
 
-实现参考（尚未接入编译链）：`electron/chm-build/compile-encoding.ts` 中的 `detectWindowsAnsiCodePage()`、`evaluateNavEncodingOptions()`。
+实现：`electron/chm-build/compile-encoding.ts`（`resolveCompileEncodingProfile`、`writeCompileTextFile`）；选项字段 `compile.windowsViewerCompat`。
 
 ---
 

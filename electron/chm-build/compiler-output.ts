@@ -30,6 +30,12 @@ export function pickCompilerErrorLine(
     .filter(Boolean)
   for (let i = lines.length - 1; i >= 0; i -= 1) {
     const line = lines[i] ?? ''
+    if (/EFCreateError|Unable to create file/i.test(line)) {
+      return line
+    }
+  }
+  for (let i = lines.length - 1; i >= 0; i -= 1) {
+    const line = lines[i] ?? ''
     if (/HHC\d+:/i.test(line)) {
       return line
     }

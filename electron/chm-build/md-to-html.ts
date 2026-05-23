@@ -88,20 +88,22 @@ export function markdownToCompileHtmlBody(
 export function wrapHtmlDocument(
   title: string,
   bodyHtml: string,
-  baseHref?: string,
+  opts?: { baseHref?: string; metaCharset?: string; lang?: string },
 ): string {
+  const metaCharset = opts?.metaCharset ?? 'UTF-8'
+  const lang = opts?.lang ?? 'zh-CN'
   const safeTitle = title
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-  const safeBase = baseHref
-    ? baseHref.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+  const safeBase = opts?.baseHref
+    ? opts.baseHref.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
     : ''
   const baseTag = safeBase ? `<base href="${safeBase}">\n` : ''
   return `<!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="${lang}">
 <head>
-<meta charset="UTF-8">
+<meta charset="${metaCharset}">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 ${baseTag}<title>${safeTitle}</title>
 <style>
