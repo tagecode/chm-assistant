@@ -16,7 +16,7 @@ import {
 import { generateHhc } from './hhc-generator'
 import { generateHhk } from './hhk-generator'
 import { generateHhp } from './hhp-generator'
-import { markdownToHtmlBody, wrapHtmlDocument } from './md-to-html'
+import { markdownToCompileHtmlBody, wrapHtmlDocument } from './md-to-html'
 import { parseCompilerLogLine } from './parse-compiler-log'
 import {
   compilerOutputIndicatesFailure,
@@ -126,6 +126,16 @@ export async function compileProject(
   fs.mkdirSync(buildDir, { recursive: true })
   fs.mkdirSync(distDir, { recursive: true })
 
+  let resourcePathMap = new Map<string, string>()
+  if (resourcePaths.length > 0) {
+    emit({ level: 'info', message: `正在复制 ${resourcePaths.length} 个资源文件…` })
+    const { copied, pathMap } = copyResourcesToBuild(rootPath, buildDir, resourcePaths)
+    resourcePathMap = pathMap
+    for (const rel of copied) {
+      emit({ level: 'info', message: `已复制资源 ${rel}` })
+    }
+  }
+
   emit({ level: 'info', message: '正在将 Markdown 转换为 HTML…' })
 
   const htmlFiles: string[] = []
@@ -153,7 +163,12 @@ export async function compileProject(
       findTocTitle(config.toc, mdRel.replace(/\\/g, '/')) ??
       path.basename(mdRel, '.md')
 
-    const body = markdownToHtmlBody(source)
+    const body = markdownToCompileHtmlBody(
+      source,
+      rootPath,
+      mdRel.replace(/\\/g, '/'),
+      resourcePathMap,
+    )
     const doc = wrapHtmlDocument(title, body)
     writeUtf8NoBom(absHtml, doc)
     htmlFiles.push(htmlRel.replace(/\\/g, '/'))
@@ -173,12 +188,10 @@ export async function compileProject(
     ? defaultHtml
     : (htmlFiles[0] ?? 'index.html')
 
-  if (resourcePaths.length > 0) {
-    emit({ level: 'info', message: `正在复制 ${resourcePaths.length} 个资源文件…` })
-    const copied = copyResourcesToBuild(rootPath, buildDir, resourcePaths)
-    for (const rel of copied) {
+  const buildResourceFiles = [...resourcePathMap.values()]
+  for (const rel of buildResourceFiles) {
+    if (!htmlFiles.includes(rel)) {
       htmlFiles.push(rel)
-      emit({ level: 'info', message: `已复制资源 ${rel}` })
     }
   }
 

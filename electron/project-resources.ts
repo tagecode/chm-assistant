@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import crypto from 'node:crypto'
 
 import type { ChmProjectConfig } from '../src/shared/project'
 import { readUtf8NoBom, resolveMdPath } from './project-fs'
@@ -163,23 +164,56 @@ export function importResourcesToProject(
   }
 }
 
+/** chmcmd（Windows）无法稳定打开 UTF-8 中文等非 ASCII 路径，构建目录需 ASCII 安全名 */
+function isAsciiPathSegment(segment: string): boolean {
+  return (
+    segment.length > 0 &&
+    [...segment].every((ch) => {
+      const c = ch.charCodeAt(0)
+      return c >= 0x20 && c <= 0x7e && !/[<>:"|?*]/.test(ch)
+    })
+  )
+}
+
+export function toBuildSafeResourceRel(rel: string): string {
+  const norm = rel.replace(/\\/g, '/')
+  const parts = norm.split('/')
+  const safeParts = parts.map((part, index) => {
+    if (isAsciiPathSegment(part)) {
+      return part
+    }
+    const ext = index === parts.length - 1 ? path.posix.extname(part).toLowerCase() : ''
+    const hash = crypto
+      .createHash('sha256')
+      .update(norm)
+      .digest('hex')
+      .slice(0, 12)
+    return `_${hash}${ext}`
+  })
+  return safeParts.join('/')
+}
+
 export function copyResourcesToBuild(
   rootPath: string,
   buildDir: string,
   resourceRelPaths: string[],
-): string[] {
+): { copied: string[]; pathMap: Map<string, string> } {
   const copied: string[] = []
+  const pathMap = new Map<string, string>()
   for (const rel of resourceRelPaths) {
-    const src = path.join(rootPath, rel.replace(/\//g, path.sep))
+    const norm = rel.replace(/\\/g, '/')
+    const src = path.join(rootPath, norm.replace(/\//g, path.sep))
     if (!fs.existsSync(src)) {
       continue
     }
-    const dest = path.join(buildDir, rel.replace(/\//g, path.sep))
+    const buildRel = toBuildSafeResourceRel(norm)
+    pathMap.set(norm, buildRel)
+    const dest = path.join(buildDir, buildRel.replace(/\//g, path.sep))
     fs.mkdirSync(path.dirname(dest), { recursive: true })
     fs.copyFileSync(src, dest)
-    copied.push(rel.replace(/\\/g, '/'))
+    copied.push(buildRel)
   }
-  return copied
+  return { copied, pathMap }
 }
 
 export function gatherAllProjectResources(

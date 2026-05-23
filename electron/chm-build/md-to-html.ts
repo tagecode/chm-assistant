@@ -1,5 +1,10 @@
 import MarkdownIt from 'markdown-it'
 
+import {
+  decodeResourceRef,
+  resolveProjectResourceRef,
+} from '../project-resources'
+
 const md = new MarkdownIt({
   html: false,
   linkify: true,
@@ -8,6 +13,79 @@ const md = new MarkdownIt({
 
 export function markdownToHtmlBody(source: string): string {
   return md.render(source)
+}
+
+function applyBuildResourcePaths(
+  markdown: string,
+  rootPath: string,
+  mdRel: string,
+  pathMap: Map<string, string>,
+): string {
+  const renderer = new MarkdownIt({
+    html: false,
+    linkify: true,
+    typographer: true,
+  })
+  const defaultImage =
+    renderer.renderer.rules.image ??
+    ((tokens, idx, options, _env, self) =>
+      self.renderToken(tokens, idx, options))
+  const defaultLinkOpen =
+    renderer.renderer.rules.link_open ??
+    ((tokens, idx, options, _env, self) =>
+      self.renderToken(tokens, idx, options))
+
+  const rewriteLocalRef = (href: string): string | null => {
+    const ref = decodeResourceRef(href)
+    if (
+      !ref ||
+      /^https?:/i.test(ref) ||
+      ref.startsWith('data:') ||
+      ref.startsWith('#') ||
+      ref.startsWith('mailto:')
+    ) {
+      return null
+    }
+    const resolved = resolveProjectResourceRef(rootPath, mdRel, ref)
+    if (!resolved) {
+      return null
+    }
+    return pathMap.get(resolved.replace(/\\/g, '/')) ?? null
+  }
+
+  renderer.renderer.rules.image = (tokens, idx, options, env, self) => {
+    const token = tokens[idx]
+    const src = token.attrGet('src') ?? ''
+    const buildRef = rewriteLocalRef(src)
+    if (buildRef) {
+      token.attrSet('src', buildRef)
+    }
+    return defaultImage(tokens, idx, options, env, self)
+  }
+
+  renderer.renderer.rules.link_open = (tokens, idx, options, env, self) => {
+    const token = tokens[idx]
+    const href = token.attrGet('href') ?? ''
+    const buildRef = rewriteLocalRef(href)
+    if (buildRef) {
+      token.attrSet('href', buildRef)
+    }
+    return defaultLinkOpen(tokens, idx, options, env, self)
+  }
+
+  return renderer.render(markdown)
+}
+
+export function markdownToCompileHtmlBody(
+  source: string,
+  rootPath: string,
+  mdRel: string,
+  pathMap: Map<string, string>,
+): string {
+  if (pathMap.size === 0) {
+    return markdownToHtmlBody(source)
+  }
+  return applyBuildResourcePaths(source, rootPath, mdRel, pathMap)
 }
 
 export function wrapHtmlDocument(
