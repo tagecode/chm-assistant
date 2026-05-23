@@ -57,9 +57,7 @@ ${items}
 
 function navHeadMeta(charset?: string): string {
   const lines = ['<meta name="GENERATOR" content="CHM Assistant">']
-  if (charset) {
-    lines.unshift(`<meta http-equiv="Content-Type" content="text/html; charset=${charset}">`)
-  }
+  lines.unshift(`<meta http-equiv="Content-Type" content="text/html; charset=${charset ?? 'UTF-8'}">`)
   return lines.join('\n')
 }
 

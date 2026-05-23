@@ -289,7 +289,7 @@ export async function compileProject(
   }
 
   emit({ level: 'info', message: '正在生成 .hhc / .hhk / .hhp…' })
-  const navMeta = legacyAnsi ? encProfile.htmlMetaCharset : undefined
+  const navMeta = encProfile.htmlMetaCharset
   writeCompileTextFile(
     path.join(buildDir, HHC_NAME),
     generateHhc(config.toc, mdToHtml, { metaCharset: navMeta }),

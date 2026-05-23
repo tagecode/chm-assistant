@@ -33,6 +33,7 @@
     "dist:win": "pnpm run dist:prepare && pnpm run build && electron-builder --win",
     "dist:linux": "pnpm run dist:prepare && pnpm run compilers:stage && pnpm run build && electron-builder --linux",
     "dist:ci": "node scripts/ci-package.mjs",
+    "test:chm-nav-encoding": "node scripts/tests/chm-nav-encoding.mjs",
     "test:mvp": "node scripts/mvp-acceptance/run.mjs",
     "test:mvp:static": "node scripts/mvp-acceptance/run.mjs -- --static-only --no-build"
   },
