@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from 're
 import { ChevronLeft, ChevronRight, Copy, Minus, Plus, Search, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { ChmLoadingPanel } from '@/components/chm-loading-panel'
 import { Input } from '@/components/ui/input'
 import { useI18n } from '@/i18n/i18n-context'
 import type { MessageKey } from '@/i18n/zh-Hans'
@@ -258,10 +259,12 @@ export function ReaderView({
   tab,
   readerEncoding,
   onReaderStateChange,
+  onInitialPageReady,
 }: {
   tab: WorkspaceTab & { kind: 'reader' }
   readerEncoding: string
   onReaderStateChange: (tabId: string, patch: ReaderUiState) => void
+  onInitialPageReady?: (tabId: string) => void
 }) {
   const { t } = useI18n()
   const iframeRef = useRef<HTMLIFrameElement>(null)
@@ -280,6 +283,8 @@ export function ReaderView({
   const [searchBusy, setSearchBusy] = useState(false)
   const [searchHits, setSearchHits] = useState<ChmSearchHit[]>([])
   const [pendingFind, setPendingFind] = useState<string | null>(null)
+  const [pageLoading, setPageLoading] = useState(true)
+  const initialPageReadyRef = useRef(false)
 
   const pushState = useCallback(
     (patch: Partial<ReaderUiState>) => {
@@ -305,9 +310,15 @@ export function ReaderView({
     setSide(ui.sidePanel)
     setZoomPercent(ui.zoomPercent)
     setWidthMode(ui.widthMode)
+    setPageLoading(true)
+    initialPageReadyRef.current = false
   }, [tab.sessionId])
 
   const frameSrc = buildChmPageUrl(tab.sessionId, currentPath, currentFragment || undefined)
+
+  useEffect(() => {
+    setPageLoading(true)
+  }, [frameSrc])
 
   const syncFromIframe = useCallback(() => {
     const w = iframeRef.current?.contentWindow
@@ -327,6 +338,11 @@ export function ReaderView({
     if (!el) return
     const fn = () => {
       syncFromIframe()
+      setPageLoading(false)
+      if (!initialPageReadyRef.current) {
+        initialPageReadyRef.current = true
+        onInitialPageReady?.(tab.id)
+      }
       if (pendingFind) {
         const q = pendingFind
         setPendingFind(null)
@@ -337,7 +353,7 @@ export function ReaderView({
     }
     el.addEventListener('load', fn)
     return () => el.removeEventListener('load', fn)
-  }, [syncFromIframe, frameSrc, pendingFind])
+  }, [syncFromIframe, frameSrc, pendingFind, onInitialPageReady, tab.id])
 
   const onTocPick = useCallback((item: ChmTocItem) => {
     if (!item.path) return
@@ -608,12 +624,24 @@ export function ReaderView({
               widthMode === 'fit' ? 'max-w-4xl' : 'max-w-none',
             )}
           >
-            <div className="flex min-h-0 flex-1 flex-col" style={zoomStyle}>
+            <div className="relative flex min-h-0 flex-1 flex-col" style={zoomStyle}>
+              {pageLoading ? (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/85 backdrop-blur-[1px]">
+                  <ChmLoadingPanel
+                    title={t('reader.openingPage')}
+                    fileName={tab.title}
+                    className="py-4"
+                  />
+                </div>
+              ) : null}
               <iframe
                 ref={iframeRef}
                 key={`${tab.sessionId}:${readerEncoding}:${currentPath}#${currentFragment}`}
                 title={t('reader.frameTitle')}
-                className="min-h-0 flex-1 w-full border-0 bg-background"
+                className={cn(
+                  'min-h-0 flex-1 w-full border-0 bg-background transition-opacity duration-200',
+                  pageLoading ? 'opacity-0' : 'opacity-100',
+                )}
                 src={frameSrc}
                 sandbox="allow-scripts allow-same-origin allow-popups"
               />

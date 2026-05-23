@@ -19,6 +19,7 @@ import {
   formatWorkspaceTabLabel,
 } from '@/lib/workspace-tabs'
 import { Button } from '@/components/ui/button'
+import { ChmOpeningOverlay } from '@/components/chm-loading-panel'
 import {
   UnsavedChangesDialog,
 } from '@/components/unsaved-changes-dialog'
@@ -92,9 +93,15 @@ function AppInner() {
   const [chmCompilerPath, setChmCompilerPath] = useState('')
   const [bootstrapped, setBootstrapped] = useState(false)
   const [closeTabPrompt, setCloseTabPrompt] = useState<{ tabId: string } | null>(null)
+  const [chmOpening, setChmOpening] = useState<{
+    filePath: string
+    waitingTabId?: string
+  } | null>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const composerHandles = useRef<Map<string, ComposerTabHandle>>(new Map())
   const tabsRef = useRef<WorkspaceTab[]>([])
+  const chmOpeningWaitRef = useRef<string | null>(null)
+  const chmOpeningResolveRef = useRef<(() => void) | null>(null)
 
   const activeTab = tabs.find((x) => x.id === activeTabId) ?? null
 
@@ -242,28 +249,54 @@ function AppInner() {
         setScreen('workspace')
         return
       }
-      const opened = await api.openChmSession(filePath)
-      if (!opened.ok) {
-        window.alert(t(CHM_OPEN_ERR[opened.code]))
-        return
+
+      const displayName = filePath.split(/[/\\]/).pop() || filePath
+      setChmOpening({ filePath: displayName })
+      try {
+        const opened = await api.openChmSession(filePath)
+        if (!opened.ok) {
+          window.alert(t(CHM_OPEN_ERR[opened.code]))
+          return
+        }
+
+        const tabId = crypto.randomUUID()
+        chmOpeningWaitRef.current = tabId
+        setChmOpening({ filePath: displayName, waitingTabId: tabId })
+
+        await api.addRecent({ type: 'chm', path: opened.path })
+        await refreshRecent()
+        openReaderTab({
+          id: tabId,
+          kind: 'reader',
+          title: opened.path.split(/[/\\]/).pop() || 'file.chm',
+          path: opened.path,
+          chmTitle: opened.chmTitle,
+          sessionId: opened.sessionId,
+          entryInternalPath: opened.entryInternalPath,
+          entryFragment: opened.entryFragment,
+          toc: opened.toc,
+          index: opened.index,
+        })
+
+        await new Promise<void>((resolve) => {
+          chmOpeningResolveRef.current = resolve
+          window.setTimeout(resolve, 20_000)
+        })
+      } finally {
+        chmOpeningWaitRef.current = null
+        chmOpeningResolveRef.current = null
+        setChmOpening(null)
       }
-      await api.addRecent({ type: 'chm', path: opened.path })
-      await refreshRecent()
-      openReaderTab({
-        id: crypto.randomUUID(),
-        kind: 'reader',
-        title: opened.path.split(/[/\\]/).pop() || 'file.chm',
-        path: opened.path,
-        chmTitle: opened.chmTitle,
-        sessionId: opened.sessionId,
-        entryInternalPath: opened.entryInternalPath,
-        entryFragment: opened.entryFragment,
-        toc: opened.toc,
-        index: opened.index,
-      })
     },
     [metadata.platform, openReaderTab, refreshRecent, t],
   )
+
+  const handleReaderInitialPageReady = useCallback((tabId: string) => {
+    if (chmOpeningWaitRef.current !== tabId) return
+    chmOpeningWaitRef.current = null
+    chmOpeningResolveRef.current?.()
+    chmOpeningResolveRef.current = null
+  }, [])
 
   const handleProjectTabTitle = useCallback((tabId: string, title: string) => {
     setTabs((prev) =>
@@ -478,6 +511,7 @@ function AppInner() {
             tab={activeTab}
             readerEncoding={readerEncoding}
             onReaderStateChange={handleReaderStateChange}
+            onInitialPageReady={handleReaderInitialPageReady}
           />
         ) : activeTab?.kind === 'project' ? (
           <ComposerView
@@ -508,6 +542,14 @@ function AppInner() {
         onDiscard={() => void completeUnsavedClosePrompt('discard')}
         onSave={() => void completeUnsavedClosePrompt('save')}
       />
+
+      {chmOpening ? (
+        <ChmOpeningOverlay
+          fileName={chmOpening.filePath}
+          title={t(chmOpening.waitingTabId ? 'reader.openingPage' : 'reader.openingChm')}
+          hint={t('reader.openingHint')}
+        />
+      ) : null}
     </div>
   )
 }

@@ -118,6 +118,19 @@ body {
   min-height: 100vh;
 }
 
+@keyframes chm-loading-slide {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}
+
+.chm-loading-bar {
+  animation: chm-loading-slide 1.35s ease-in-out infinite;
+}
+
 * {
   border-color: var(--border);
 }
