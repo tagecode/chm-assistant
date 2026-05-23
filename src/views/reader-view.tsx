@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { useI18n } from '@/i18n/i18n-context'
 import type { MessageKey } from '@/i18n/zh-Hans'
 import { buildChmPageUrl } from '@/lib/chm-url'
+import { clearFindInChmIframe, findInChmIframe, previewFindInChmIframe } from '@/lib/find-in-chm-iframe'
 import { findTocBreadcrumb } from '@/lib/toc-utils'
 import { cn } from '@/lib/utils'
 import type { ChmSearchHit, ChmTocItem, ReaderSidePanel, ReaderWidthMode } from '@/shared/electron'
@@ -347,7 +348,7 @@ export function ReaderView({
         const q = pendingFind
         setPendingFind(null)
         window.setTimeout(() => {
-          findInPage(el.contentWindow, q, true)
+          findInChmIframe(el, q, true)
         }, 50)
       }
     }
@@ -365,10 +366,20 @@ export function ReaderView({
     (forward: boolean) => {
       const q = findQuery.trim()
       if (!q) return
-      findInPage(iframeRef.current?.contentWindow ?? null, q, forward)
+      findInChmIframe(iframeRef.current, q, forward)
     },
     [findQuery],
   )
+
+  const toggleFindBar = useCallback(() => {
+    setFindOpen((open) => {
+      const next = !open
+      if (next) {
+        window.setTimeout(() => findInputRef.current?.focus(), 0)
+      }
+      return next
+    })
+  }, [])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -382,6 +393,29 @@ export function ReaderView({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [findOpen])
+
+  useEffect(() => {
+    if (!findOpen) return
+    const q = findQuery.trim()
+    const timer = window.setTimeout(() => {
+      if (!q) {
+        clearFindInChmIframe(iframeRef.current)
+        return
+      }
+      previewFindInChmIframe(iframeRef.current, q)
+    }, 180)
+    return () => window.clearTimeout(timer)
+  }, [findQuery, findOpen])
+
+  useEffect(() => {
+    if (!findOpen) {
+      clearFindInChmIframe(iframeRef.current)
+    }
+  }, [findOpen])
+
+  useEffect(() => {
+    return () => clearFindInChmIframe(iframeRef.current)
+  }, [frameSrc])
 
   const runFullSearch = useCallback(async () => {
     const q = searchQuery.trim()
@@ -516,10 +550,11 @@ export function ReaderView({
         </div>
         <Button
           type="button"
-          variant="outline"
+          variant={findOpen ? 'secondary' : 'outline'}
           size="sm"
           className="h-8 gap-1 text-xs"
-          onClick={() => setFindOpen(true)}
+          aria-pressed={findOpen}
+          onClick={toggleFindBar}
         >
           <Search className="size-3.5" />
           {t('reader.find')}
@@ -651,24 +686,6 @@ export function ReaderView({
       </div>
     </div>
   )
-}
-
-type FindableWindow = Window & {
-  find?: (
-    searchString: string,
-    caseSensitive?: boolean,
-    backwards?: boolean,
-    wrapAround?: boolean,
-    wholeWord?: boolean,
-    searchInFrames?: boolean,
-    showDialog?: boolean,
-  ) => boolean
-}
-
-function findInPage(win: Window | null, query: string, forward: boolean) {
-  if (!win) return
-  const fn = (win as FindableWindow).find
-  fn?.call(win, query, false, !forward, true, false, true, false)
 }
 
 function SidePanelTabs({
