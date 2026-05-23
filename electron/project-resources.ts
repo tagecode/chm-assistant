@@ -32,18 +32,28 @@ export function extractMarkdownResourceRefs(markdown: string): string[] {
   return refs
 }
 
-function resolveResourceFromMd(
+/** 解码 Markdown / HTML 中的资源路径（markdown-it 会对非 ASCII 做 URL 编码） */
+export function decodeResourceRef(ref: string): string {
+  try {
+    return decodeURIComponent(ref)
+  } catch {
+    return ref
+  }
+}
+
+export function resolveProjectResourceRef(
   rootPath: string,
   mdRel: string,
   ref: string,
 ): string | null {
+  const decoded = decodeResourceRef(ref.trim())
   const mdDir = path.posix.dirname(mdRel.replace(/\\/g, '/'))
   const joined =
-    ref.startsWith('/') || /^[a-zA-Z]:/.test(ref)
-      ? ref.replace(/^\//, '')
+    decoded.startsWith('/') || /^[a-zA-Z]:/.test(decoded)
+      ? decoded.replace(/^\//, '')
       : mdDir === '.' || mdDir === ''
-        ? ref
-        : path.posix.join(mdDir, ref)
+        ? decoded
+        : path.posix.join(mdDir, decoded)
   const norm = joined.replace(/\\/g, '/')
   try {
     const abs = resolveMdPath(rootPath, norm)
@@ -64,7 +74,7 @@ export function collectResourcesForMarkdown(
   const found: string[] = []
   const missing: string[] = []
   for (const ref of extractMarkdownResourceRefs(markdown)) {
-    const resolved = resolveResourceFromMd(rootPath, mdRel, ref)
+    const resolved = resolveProjectResourceRef(rootPath, mdRel, ref)
     if (resolved) {
       found.push(resolved)
     } else {

@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { pathToFileURL } from 'node:url'
+
+import MarkdownIt from 'markdown-it'
 
 import type {
   ChmProjectConfig,
@@ -12,10 +13,12 @@ import type {
   TocMovePlacement,
 } from '../src/shared/project'
 import { compileProject } from './chm-build/compile-project'
-import { markdownToHtmlBody, wrapHtmlDocument } from './chm-build/md-to-html'
+import { wrapHtmlDocument } from './chm-build/md-to-html'
 import {
   importResourcesToProject,
   listProjectAssetFiles,
+  decodeResourceRef,
+  resolveProjectResourceRef,
 } from './project-resources'
 import {
   buildTocFromFilesystem,
@@ -146,12 +149,71 @@ export function buildMarkdownPreviewHtml(
   markdown: string,
 ): string {
   const mdRel = mdRelPath.replace(/\\/g, '/')
-  const mdDir = path.posix.dirname(mdRel)
-  const basePath =
-    mdDir === '.' ? rootPath : path.join(rootPath, mdDir.replace(/\//g, path.sep))
-  const baseHref = `${pathToFileURL(basePath).href}/`
-  const body = markdownToHtmlBody(markdown)
-  return wrapHtmlDocument('Preview', body, baseHref)
+  const body = markdownToPreviewHtmlBody(rootPath, mdRel, markdown)
+  // 预览 iframe 无法加载 file://；图片已内联为 data URL，不再设置 base 避免回退到本地文件
+  return wrapHtmlDocument('Preview', body)
+}
+
+const PREVIEW_IMAGE_MIME: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.svg': 'image/svg+xml',
+  '.bmp': 'image/bmp',
+  '.ico': 'image/x-icon',
+}
+
+function localImageToDataUrl(absPath: string): string | null {
+  if (!fs.existsSync(absPath) || !fs.statSync(absPath).isFile()) {
+    return null
+  }
+  const ext = path.extname(absPath).toLowerCase()
+  const mime = PREVIEW_IMAGE_MIME[ext]
+  if (!mime) {
+    return null
+  }
+  const buf = fs.readFileSync(absPath)
+  return `data:${mime};base64,${buf.toString('base64')}`
+}
+
+function markdownToPreviewHtmlBody(
+  rootPath: string,
+  mdRel: string,
+  markdown: string,
+): string {
+  const md = new MarkdownIt({
+    html: false,
+    linkify: true,
+    typographer: true,
+  })
+  const defaultImage =
+    md.renderer.rules.image ??
+    ((tokens, idx, options, _env, self) =>
+      self.renderToken(tokens, idx, options))
+  md.renderer.rules.image = (tokens, idx, options, env, self) => {
+    const token = tokens[idx]
+    const src = token.attrGet('src') ?? ''
+    const ref = decodeResourceRef(src)
+    if (
+      ref &&
+      !/^https?:/i.test(ref) &&
+      !ref.startsWith('data:') &&
+      !ref.startsWith('#')
+    ) {
+      const resolved = resolveProjectResourceRef(rootPath, mdRel, ref)
+      if (resolved) {
+        const abs = path.join(rootPath, resolved.replace(/\//g, path.sep))
+        const dataUrl = localImageToDataUrl(abs)
+        if (dataUrl) {
+          token.attrSet('src', dataUrl)
+        }
+      }
+    }
+    return defaultImage(tokens, idx, options, env, self)
+  }
+  return md.render(markdown)
 }
 
 export function importProjectResources(
