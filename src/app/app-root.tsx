@@ -19,6 +19,9 @@ import {
   formatWorkspaceTabLabel,
 } from '@/lib/workspace-tabs'
 import { Button } from '@/components/ui/button'
+import {
+  UnsavedChangesDialog,
+} from '@/components/unsaved-changes-dialog'
 import { HomeView } from '@/views/home-view'
 import { ReaderView } from '@/views/reader-view'
 import { ComposerView, type ComposerTabHandle } from '@/views/composer-view'
@@ -88,6 +91,7 @@ function AppInner() {
   const [readerEncoding, setReaderEncoding] = useState('auto')
   const [chmCompilerPath, setChmCompilerPath] = useState('')
   const [bootstrapped, setBootstrapped] = useState(false)
+  const [closeTabPrompt, setCloseTabPrompt] = useState<{ tabId: string } | null>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const composerHandles = useRef<Map<string, ComposerTabHandle>>(new Map())
   const tabsRef = useRef<WorkspaceTab[]>([])
@@ -278,38 +282,63 @@ function AppInner() {
     [],
   )
 
-  const closeTab = useCallback(
-    async (id: string) => {
+  const performCloseTab = useCallback((id: string) => {
+    setTabs((prev) => {
+      const v = prev.find((x) => x.id === id)
+      if (v?.kind === 'reader') {
+        void window.electronAPI?.closeChmSession(v.sessionId)
+      }
+      composerHandles.current.delete(id)
+      const next = prev.filter((x) => x.id !== id)
+      setActiveTabId((cur) => {
+        if (cur !== id) return cur
+        return next[next.length - 1]?.id ?? null
+      })
+      if (next.length === 0) {
+        setScreen('home')
+      }
+      return next
+    })
+  }, [])
+
+  const requestCloseTab = useCallback(
+    (id: string) => {
       const victim = tabs.find((x) => x.id === id)
-      const composer = composerHandles.current.get(id)
-      if (victim?.kind === 'project' && composer?.isDirty()) {
-        const saveFirst = window.confirm(t('composer.confirmSaveBeforeLeave'))
-        if (saveFirst) {
-          const ok = await composer.save()
-          if (!ok) return
-        }
-      } else if (!window.confirm(t('workspace.tabs.confirmClose'))) {
+      if (!victim) return
+      if (victim.kind === 'reader') {
+        performCloseTab(id)
         return
       }
-      setTabs((prev) => {
-        const v = prev.find((x) => x.id === id)
-        if (v?.kind === 'reader') {
-          void window.electronAPI?.closeChmSession(v.sessionId)
-        }
-        composerHandles.current.delete(id)
-        const next = prev.filter((x) => x.id !== id)
-        setActiveTabId((cur) => {
-          if (cur !== id) return cur
-          return next[next.length - 1]?.id ?? null
-        })
-        if (next.length === 0) {
-          setScreen('home')
-        }
-        return next
-      })
+      const composer = composerHandles.current.get(id)
+      if (composer?.isDirty()) {
+        setCloseTabPrompt({ tabId: id })
+        return
+      }
+      performCloseTab(id)
     },
-    [t, tabs],
+    [tabs, performCloseTab],
   )
+
+  const completeUnsavedClosePrompt = useCallback(
+    async (action: 'cancel' | 'discard' | 'save') => {
+      if (!closeTabPrompt) return
+      const tabId = closeTabPrompt.tabId
+      if (action === 'cancel') {
+        setCloseTabPrompt(null)
+        return
+      }
+      if (action === 'save') {
+        const composer = composerHandles.current.get(tabId)
+        const ok = await composer?.save()
+        if (!ok) return
+      }
+      setCloseTabPrompt(null)
+      performCloseTab(tabId)
+    },
+    [closeTabPrompt, performCloseTab],
+  )
+
+  const closeTab = requestCloseTab
 
   const handleReaderStateChange = useCallback(
     (
@@ -467,6 +496,18 @@ function AppInner() {
           />
         )}
       </main>
+
+      <UnsavedChangesDialog
+        open={closeTabPrompt != null}
+        onOpenChange={(open) => {
+          if (!open) setCloseTabPrompt(null)
+        }}
+        descriptionKey="workspace.tabs.confirmSaveBeforeClose"
+        saveLabelKey="composer.saveAndClose"
+        onCancel={() => setCloseTabPrompt(null)}
+        onDiscard={() => void completeUnsavedClosePrompt('discard')}
+        onSave={() => void completeUnsavedClosePrompt('save')}
+      />
     </div>
   )
 }

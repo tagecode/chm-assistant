@@ -24,6 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { UnsavedChangesDialog } from '@/components/unsaved-changes-dialog'
 import { Input } from '@/components/ui/input'
 import { useI18n } from '@/i18n/i18n-context'
 import { promptCompilerMissing } from '@/lib/compiler-ui'
@@ -600,30 +601,17 @@ export function ComposerView({
         ) : null}
       </div>
 
-      <Dialog
+      <UnsavedChangesDialog
         open={leavePrompt != null}
         onOpenChange={(open) => {
           if (!open) setLeavePrompt(null)
         }}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{t('composer.unsavedLeaveTitle')}</DialogTitle>
-            <DialogDescription>{t('composer.confirmSaveBeforeLeave')}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="flex-row flex-wrap justify-end gap-2 sm:gap-2">
-            <Button variant="outline" onClick={() => void completeLeavePrompt('cancel')}>
-              {t('project.cancel')}
-            </Button>
-            <Button variant="outline" onClick={() => void completeLeavePrompt('discard')}>
-              {t('composer.leaveWithoutSaving')}
-            </Button>
-            <Button onClick={() => void completeLeavePrompt('save')}>
-              {t('composer.saveAndSwitch')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        descriptionKey="composer.confirmSaveBeforeLeave"
+        saveLabelKey="composer.saveAndSwitch"
+        onCancel={() => setLeavePrompt(null)}
+        onDiscard={() => void completeLeavePrompt('discard')}
+        onSave={() => void completeLeavePrompt('save')}
+      />
 
       <Dialog open={metaOpen} onOpenChange={setMetaOpen}>
         <DialogContent className="max-w-md">
