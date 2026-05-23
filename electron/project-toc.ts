@@ -8,7 +8,7 @@ import {
   sanitizeDirName,
   uniquifyMdRelPath,
 } from './project-docs'
-import { resolveMdPath, saveProjectConfig, writeUtf8NoBom } from './project-fs'
+import { resolveMdPath, saveProjectConfig, titleFromMdPath, writeUtf8NoBom } from './project-fs'
 
 export type TocLocate = {
   node: ProjectTocNode
@@ -221,12 +221,35 @@ function walkUpdateMdPath(nodes: ProjectTocNode[], oldPath: string, newPath: str
   }
 }
 
+function walkUpdatePathPrefix(nodes: ProjectTocNode[], oldPrefix: string, newPrefix: string): void {
+  const oldNorm = oldPrefix.replace(/\\/g, '/').replace(/\/+$/, '')
+  const newNorm = newPrefix.replace(/\\/g, '/').replace(/\/+$/, '')
+  for (const n of nodes) {
+    if (n.mdPath) {
+      const mp = n.mdPath.replace(/\\/g, '/')
+      if (mp === oldNorm || mp.startsWith(`${oldNorm}/`)) {
+        n.mdPath = mp === oldNorm ? newNorm : `${newNorm}/${mp.slice(oldNorm.length + 1)}`
+      }
+    }
+    if (n.dirPath) {
+      const dp = n.dirPath.replace(/\\/g, '/')
+      if (dp === oldNorm || dp.startsWith(`${oldNorm}/`)) {
+        n.dirPath = dp === oldNorm ? newNorm : `${newNorm}/${dp.slice(oldNorm.length + 1)}`
+      }
+    }
+    if (n.children?.length) {
+      walkUpdatePathPrefix(n.children, oldNorm, newNorm)
+    }
+  }
+}
+
 export function renameTocNode(
   rootPath: string,
   config: ChmProjectConfig,
   nodeId: string,
   title: string,
   mdPath?: string,
+  dirName?: string,
 ): { ok: true; config: ChmProjectConfig } | { ok: false; message: string } {
   const nextTitle = title.trim()
   if (!nextTitle) {
@@ -261,6 +284,43 @@ export function renameTocNode(
         if (config.defaultPage.replace(/\\/g, '/') === oldRel) {
           config.defaultPage = rel
         }
+        const autoOldTitle = titleFromMdPath(oldRel)
+        if (nextTitle === autoOldTitle) {
+          node.title = titleFromMdPath(rel)
+        }
+      } catch (e) {
+        return { ok: false, message: e instanceof Error ? e.message : String(e) }
+      }
+    }
+  } else if (node.dirPath) {
+    const oldDir = node.dirPath.replace(/\\/g, '/')
+    const parentDir = path.posix.dirname(oldDir)
+    const oldDirBase = path.posix.basename(oldDir)
+    const folderBase =
+      dirName !== undefined
+        ? sanitizeDirName(dirName.trim())
+        : oldDirBase
+    if (!folderBase) {
+      return { ok: false, message: '文件夹名无效' }
+    }
+    const newDir =
+      parentDir === '.' || parentDir === oldDir
+        ? folderBase
+        : `${parentDir}/${folderBase}`
+    const newDirNorm = newDir.replace(/\\/g, '/')
+    if (newDirNorm !== oldDir) {
+      try {
+        const oldAbs = path.join(rootPath, ...oldDir.split('/'))
+        const newAbs = path.join(rootPath, ...newDirNorm.split('/'))
+        if (!fs.existsSync(oldAbs)) {
+          return { ok: false, message: '文件夹不存在' }
+        }
+        if (fs.existsSync(newAbs)) {
+          return { ok: false, message: '目标文件夹已存在' }
+        }
+        fs.renameSync(oldAbs, newAbs)
+        walkUpdatePathPrefix(config.toc, oldDir, newDirNorm)
+        node.dirPath = newDirNorm
       } catch (e) {
         return { ok: false, message: e instanceof Error ? e.message : String(e) }
       }
@@ -268,7 +328,7 @@ export function renameTocNode(
   }
 
   saveProjectConfig(rootPath, config)
-  return { ok: true, config }
+  return { ok: true, config: structuredClone(config) }
 }
 
 function nodeContainsId(node: ProjectTocNode, nodeId: string): boolean {

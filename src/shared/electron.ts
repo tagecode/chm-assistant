@@ -216,6 +216,7 @@ export interface ElectronApi {
     nodeId: string,
     title: string,
     mdPath?: string,
+    dirName?: string,
   ) => Promise<
     | { ok: true; config: ChmProjectConfig }
     | { ok: false; message: string }

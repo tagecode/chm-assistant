@@ -24,6 +24,7 @@ import {
 } from './compiler-output'
 import { getCompilerStatus, resolveChmCompiler, runChmCompiler } from './compiler'
 import {
+  buildMdToBuildHtmlMap,
   copyResourcesToBuild,
   gatherAllProjectResources,
 } from '../project-resources'
@@ -138,6 +139,12 @@ export async function compileProject(
 
   emit({ level: 'info', message: '正在将 Markdown 转换为 HTML…' })
 
+  const mdToBuildHtml = buildMdToBuildHtmlMap(mdPaths)
+  const compilePathMap = new Map<string, string>(resourcePathMap)
+  for (const [md, html] of mdToBuildHtml) {
+    compilePathMap.set(md, html)
+  }
+
   const htmlFiles: string[] = []
   for (const mdRel of mdPaths) {
     const absMd = resolveMdPath(rootPath, mdRel)
@@ -157,25 +164,28 @@ export async function compileProject(
       emit({ level: 'error', message: `读取失败：${msg}`, sourcePath: mdRel })
       return { ok: false, error: msg, logs }
     }
-    const htmlRel = mdPathToHtmlRel(mdRel)
-    const absHtml = path.join(buildDir, htmlRel)
+    const mdNorm = mdRel.replace(/\\/g, '/')
+    const htmlRel = mdToBuildHtml.get(mdNorm) ?? mdPathToHtmlRel(mdNorm)
+    const absHtml = path.join(buildDir, htmlRel.replace(/\//g, path.sep))
     const title =
-      findTocTitle(config.toc, mdRel.replace(/\\/g, '/')) ??
+      findTocTitle(config.toc, mdNorm) ??
       path.basename(mdRel, '.md')
 
     const body = markdownToCompileHtmlBody(
       source,
       rootPath,
-      mdRel.replace(/\\/g, '/'),
-      resourcePathMap,
+      mdNorm,
+      compilePathMap,
     )
     const doc = wrapHtmlDocument(title, body)
     writeUtf8NoBom(absHtml, doc)
-    htmlFiles.push(htmlRel.replace(/\\/g, '/'))
+    htmlFiles.push(htmlRel)
     emit({ level: 'info', message: `已生成 ${htmlRel}`, sourcePath: mdRel })
   }
 
-  const mdToHtml = mdPathToHtmlRel
+  const mdToHtml = (mdPath: string) =>
+    mdToBuildHtml.get(mdPath.replace(/\\/g, '/')) ??
+    mdPathToHtmlRel(mdPath.replace(/\\/g, '/'))
   const defaultMd = config.defaultPage || 'index.md'
   const defaultHtml = mdToHtml(defaultMd.replace(/\\/g, '/'))
   if (!htmlFiles.includes(defaultHtml)) {

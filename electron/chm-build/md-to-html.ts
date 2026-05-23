@@ -82,9 +82,6 @@ export function markdownToCompileHtmlBody(
   mdRel: string,
   pathMap: Map<string, string>,
 ): string {
-  if (pathMap.size === 0) {
-    return markdownToHtmlBody(source)
-  }
   return applyBuildResourcePaths(source, rootPath, mdRel, pathMap)
 }
 

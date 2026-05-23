@@ -185,12 +185,37 @@ export function toBuildSafeResourceRel(rel: string): string {
     const ext = index === parts.length - 1 ? path.posix.extname(part).toLowerCase() : ''
     const hash = crypto
       .createHash('sha256')
-      .update(norm)
+      .update(`${norm}#${index}:${part}`)
       .digest('hex')
       .slice(0, 12)
     return `_${hash}${ext}`
   })
   return safeParts.join('/')
+}
+
+export function mdRelToBuildHtmlRel(mdRel: string): string {
+  const norm = mdRel.replace(/\\/g, '/')
+  const htmlRel = norm.replace(/\.md$/i, '.html')
+  return toBuildSafeResourceRel(htmlRel)
+}
+
+/** Markdown 源路径 → .chm-build 内 ASCII 安全 HTML 相对路径 */
+export function buildMdToBuildHtmlMap(mdPaths: string[]): Map<string, string> {
+  const map = new Map<string, string>()
+  const usedBuild = new Set<string>()
+  for (const md of mdPaths) {
+    const norm = md.replace(/\\/g, '/')
+    let buildHtml = mdRelToBuildHtmlRel(norm)
+    let n = 1
+    while (usedBuild.has(buildHtml)) {
+      const stem = buildHtml.replace(/\.html$/i, '')
+      buildHtml = `${stem}-${n}.html`
+      n += 1
+    }
+    usedBuild.add(buildHtml)
+    map.set(norm, buildHtml)
+  }
+  return map
 }
 
 export function copyResourcesToBuild(

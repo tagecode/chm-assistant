@@ -236,8 +236,9 @@ export function renameProjectTocNode(
   nodeId: string,
   title: string,
   mdPath?: string,
+  dirName?: string,
 ) {
-  return renameTocNode(rootPath, config, nodeId, title, mdPath)
+  return renameTocNode(rootPath, config, nodeId, title, mdPath, dirName)
 }
 
 export function deleteProjectTocNode(

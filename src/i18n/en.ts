@@ -107,7 +107,14 @@ export const en: Record<MessageKey, string> = {
   'composer.logLine': 'line',
   'composer.tree.rename': 'Rename',
   'composer.tree.renameHint':
-    'Change the sidebar title; for pages you can also change the relative .md path.',
+    'Change the sidebar title. For Markdown pages, rename the file; for folders, rename the folder on disk (parent directory stays the same).',
+  'composer.tree.renameTitleLabel': 'Sidebar title',
+  'composer.tree.renameFileLabel': 'File name',
+  'composer.tree.renameFileHint': 'Current path',
+  'composer.tree.renameFileRequired': 'File name is required and must be a .md file.',
+  'composer.tree.renameFolderLabel': 'Folder name',
+  'composer.tree.renameFolderHint': 'Current path',
+  'composer.tree.renameFolderRequired': 'Folder name is required.',
   'composer.tree.confirmDelete':
     'Delete this node? Associated Markdown files will be removed from disk.',
   'composer.tree.confirmDeleteTitle': 'Delete',

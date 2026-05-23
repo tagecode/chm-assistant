@@ -77,13 +77,14 @@ const electronApi: ElectronApi = {
     ipcRenderer.invoke('project:import-resources', { rootPath, config, sourcePaths }),
   listProjectAssets: (rootPath, config) =>
     ipcRenderer.invoke('project:list-assets', { rootPath, config }),
-  renameProjectTocNode: (rootPath, config, nodeId, title, mdPath) =>
+  renameProjectTocNode: (rootPath, config, nodeId, title, mdPath, dirName) =>
     ipcRenderer.invoke('project:rename-toc-node', {
       rootPath,
       config,
       nodeId,
       title,
       mdPath,
+      dirName,
     }),
   deleteProjectTocNode: (rootPath, config, nodeId) =>
     ipcRenderer.invoke('project:delete-toc-node', { rootPath, config, nodeId }),

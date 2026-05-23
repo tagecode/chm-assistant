@@ -98,6 +98,8 @@ pnpm run dist:win   # 或 dist:mac / dist:linux
   若仍失败，请重新安装 Workshop，或在设置中指定 **chmcmd.exe**（Free Pascal）。
 - **弹窗提示找不到 `项目根目录\toc.hhc`**：旧版构建脚本的路径问题；更新应用后 `.hhp` 会使用 `.chm-build/toc.hhc`。
 - **32 位**：`hhc` 与 FPC 的 `chmcmd.exe` 多为 32 位，在 64 位 Windows 上通常仍可正常使用。
+- **中文路径 / 文件名**：`chmcmd`（以及部分环境下的 `hhc.exe`）在打开 `.hhp` 所列文件时，对 **非 ASCII 路径**（如 `docs/指南/说明.md`）支持很差，常表现为「无法打开文件」或编译失败。应用会在编译时把 `.chm-build` 内的 HTML 与资源复制为 **ASCII 安全文件名**（按哈希重命名），**项目 `docs/` 下仍可使用中文文件夹与文件名**；侧栏标题与 CHM 内显示名不受影响。
+- **Windows 自带查看器目录/索引乱码**：HTML Help 1.x 的目录（`.hhc`）与索引（`.hhk`）在 `hh.exe` 中仍按 **传统 ANSI 代码页**（简体中文多为 **936**）解释，而默认编译链产出 **UTF-8** 中间文件（`Charset=65001`，适配 **chmcmd** 与本应用阅读器）。因此在「系统已开启 UTF-8 Beta（ACP 65001）」的现代 Windows 上，**无法靠「检测系统代码页 → 统一改成 GBK」** 同时保证本应用与 `hh.exe` 均正常——强行改 GBK 会导致 chmcmd 与 UTF-8 正文/HTML 不一致，产物损坏。可选方向见下文「编码策略评估」。
 
 ---
 
@@ -116,6 +118,46 @@ pnpm run dist:win   # 或 dist:mac / dist:linux
 - PRD §4、`CR-06`：编译链调用平台编译器；各平台默认 **chmcmd**，Windows 可回退 **hhc.exe**。
 - PRD §12.1：须在文档中说明外部依赖与许可 — 本文档与 `NOTICES.md` 即为其落地。
 - `docs/mvp.md` §6.7：外部编译器失败时需人类可读错误 — 应用内通过设置状态与编译前检测实现。
+
+---
+
+## 编码策略评估（本应用 vs Windows hh.exe）
+
+### 为何不能「按项目语言一律 GBK」
+
+| 环节 | 期望编码 | 说明 |
+|------|----------|------|
+| **chmcmd**（FPC） | 与 **系统 ACP** 一致 | 在 Win10「UTF-8 Beta」开启时 ACP=**65001**，按 UTF-8 读 `.hhp/.hhc/.hhk`；若磁盘是 GBK 而正文 HTML 是 UTF-8，易产出 **损坏的 CHM** |
+| **本应用阅读器** | UTF-8 或 GBK 均可解码 | 有启发式解码链；UTF-8 产物已验证 |
+| **Windows hh.exe 目录/索引** | 简体中文多为 **936 (GBK)** | 与 UTF-8 中间文件不兼容；**正文 HTML** 仍可因 `<meta charset=UTF-8>` 正常显示 |
+
+因此：**检测系统代码页后统一改成 GBK** 在 ACP=65001 的机器上会破坏 chmcmd 编译；在 ACP=936 上若只改目录文件、正文仍 UTF-8，同样可能不一致。
+
+### 检测系统代码页是否有用？
+
+**有用，但只能作决策输入，不能单独决定编码。**
+
+Windows 上可通过 `[System.Text.Encoding]::Default.CodePage`（即 GetACP）读取：
+
+- **936**：传统简体中文 Windows
+- **950**：繁体
+- **65001**：已启用「Beta: 使用 Unicode UTF-8 提供全球语言支持」
+
+注意：
+
+- `chcp` 反映的是 **控制台** OEM 页，可能被 `chcp 65001` 临时改掉，**不应**用作编译依据。
+- 代码页只描述 **本机**；分发给其他 Windows 用户的 CHM 仍可能在其机器上表现不同。
+
+### 推荐产品策略（待 CR-08 落地）
+
+1. **默认（当前）**：UTF-8 中间文件 + `Charset=65001`（chmcmd）→ **本应用优先**，`hh.exe` 侧栏中文可能乱码。
+2. **项目选项「兼容 Windows 帮助查看器」**（进阶）：整包转 **GBK**（含 HTML 与 `.hhc/.hhk/.hhp`，`Charset=936`），建议 **hhc.exe** 或 ACP=936 环境编译；编译前 UI 明确提示本应用仍可读、但文件体积与工具链限制。
+3. **自动策略（若做）**：`编译器种类` × `系统 ACP` × `用户目标` 三维判断，例如：
+   - chmcmd + ACP 65001 → UTF-8（现状）
+   - chmcmd + ACP 936 + 用户勾选 Windows 兼容 → 全 GBK
+   - hhc.exe + 中文项目 → GBK 工程文件
+
+实现参考（尚未接入编译链）：`electron/chm-build/compile-encoding.ts` 中的 `detectWindowsAnsiCodePage()`、`evaluateNavEncodingOptions()`。
 
 ---
 

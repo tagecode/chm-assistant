@@ -51,7 +51,7 @@ export function saveProjectConfig(rootPath: string, config: ChmProjectConfig): v
   writeUtf8NoBom(projectConfigPath(rootPath), `${JSON.stringify(next, null, 2)}\n`)
 }
 
-function titleFromMdPath(mdPath: string): string {
+export function titleFromMdPath(mdPath: string): string {
   const base = path.posix.basename(mdPath, path.posix.extname(mdPath))
   if (base.toLowerCase() === 'index') {
     return '首页'

@@ -434,6 +434,7 @@ function registerIpcHandlers() {
         nodeId: string
         title: string
         mdPath?: string
+        dirName?: string
       },
     ) =>
       renameProjectTocNode(
@@ -442,6 +443,7 @@ function registerIpcHandlers() {
         payload.nodeId,
         payload.title,
         payload.mdPath,
+        payload.dirName,
       ),
   )
 

@@ -44,6 +44,47 @@ function firstMdInToc(nodes: ProjectTocNode[]): string | null {
   return null
 }
 
+/** 空项目首屏用 index.md，否则在目标目录下默认 page.md */
+function defaultNewPagePath(
+  docsDir: string,
+  baseDir: string,
+  nodes: ProjectTocNode[],
+): string {
+  if (!firstMdInToc(nodes)) {
+    return `${docsDir}/index.md`
+  }
+  return `${baseDir}/page.md`
+}
+
+function resolveRenameFolderName(input: string): string | null {
+  const trimmed = input.trim().replace(/\\/g, '/')
+  if (!trimmed) return null
+  if (trimmed.includes('/')) {
+    return trimmed.split('/').pop() ?? null
+  }
+  return trimmed
+}
+
+function resolveRenameMdPath(oldRel: string, input: string): string | null {
+  const trimmed = input.trim().replace(/\\/g, '/')
+  if (!trimmed) return null
+  if (trimmed.includes('/')) {
+    let rel = trimmed.replace(/^\/+/, '')
+    if (!/\.md$/i.test(rel)) {
+      rel = `${rel}.md`
+    }
+    return rel
+  }
+  let file = trimmed
+  if (!/\.md$/i.test(file)) {
+    file = `${file}.md`
+  }
+  const oldNorm = oldRel.replace(/\\/g, '/')
+  const slash = oldNorm.lastIndexOf('/')
+  const dir = slash >= 0 ? oldNorm.slice(0, slash) : ''
+  return dir ? `${dir}/${file}` : file
+}
+
 function logSourceToMd(sourcePath?: string): string | undefined {
   if (!sourcePath) return undefined
   const p = sourcePath.replace(/\\/g, '/')
@@ -90,7 +131,7 @@ export function ComposerView({
   const [metaOpen, setMetaOpen] = useState(false)
   const [newPageOpen, setNewPageOpen] = useState(false)
   const [newPageTitle, setNewPageTitle] = useState('')
-  const [newPagePath, setNewPagePath] = useState('docs/page.md')
+  const [newPagePath, setNewPagePath] = useState('docs/index.md')
   const [newFolderOpen, setNewFolderOpen] = useState(false)
   const [newFolderName, setNewFolderName] = useState('')
   const [createContextNodeId, setCreateContextNodeId] = useState<string | null>(null)
@@ -98,7 +139,8 @@ export function ComposerView({
   const [renameOpen, setRenameOpen] = useState(false)
   const [renameNode, setRenameNode] = useState<ProjectTocNode | null>(null)
   const [renameTitle, setRenameTitle] = useState('')
-  const [renameMdPath, setRenameMdPath] = useState('')
+  const [renameFileName, setRenameFileName] = useState('')
+  const [renameFolderName, setRenameFolderName] = useState('')
   const [leavePrompt, setLeavePrompt] = useState<{ targetMdPath: string } | null>(null)
 
   const rootPath = tab.path
@@ -340,33 +382,58 @@ export function ComposerView({
   const openRenameDialog = useCallback((node: ProjectTocNode) => {
     setRenameNode(node)
     setRenameTitle(node.title)
-    setRenameMdPath(node.mdPath ?? '')
+    const rel = node.mdPath?.replace(/\\/g, '/') ?? ''
+    setRenameFileName(rel ? (rel.split('/').pop() ?? '') : '')
+    const dir = node.dirPath?.replace(/\\/g, '/') ?? ''
+    setRenameFolderName(dir && !node.mdPath ? (dir.split('/').pop() ?? '') : '')
     setRenameOpen(true)
   }, [])
 
   const handleRenameNode = useCallback(async () => {
     const api = window.electronAPI
     if (!api || !config || !renameNode) return
+    const oldRel = renameNode.mdPath?.replace(/\\/g, '/')
+    let mdPathArg: string | undefined
+    let dirNameArg: string | undefined
+    if (oldRel) {
+      const nextRel = resolveRenameMdPath(oldRel, renameFileName)
+      if (!nextRel) {
+        await dialog.showAlert({
+          titleKey: 'dialog.noticeTitle',
+          descriptionKey: 'composer.tree.renameFileRequired',
+        })
+        return
+      }
+      mdPathArg = nextRel
+    } else if (renameNode.dirPath) {
+      const nextDirName = resolveRenameFolderName(renameFolderName)
+      if (!nextDirName) {
+        await dialog.showAlert({
+          titleKey: 'dialog.noticeTitle',
+          descriptionKey: 'composer.tree.renameFolderRequired',
+        })
+        return
+      }
+      dirNameArg = nextDirName
+    }
     const res = await api.renameProjectTocNode(
       rootPath,
       config,
       renameNode.id,
       renameTitle,
-      renameNode.mdPath ? renameMdPath : undefined,
+      mdPathArg,
+      dirNameArg,
     )
     if (!res.ok) {
       await dialog.showError(res.message)
       return
     }
-    const oldPath = activeMdPath
     setConfig(res.config)
     setRenameOpen(false)
-    if (renameNode.mdPath && activeMdPath === renameNode.mdPath.replace(/\\/g, '/')) {
-      setActiveMdPath(renameMdPath.replace(/\\/g, '/'))
-    } else if (oldPath) {
-      setActiveMdPath(oldPath)
+    if (oldRel && mdPathArg && activeMdPath === oldRel) {
+      setActiveMdPath(mdPathArg)
     }
-  }, [activeMdPath, config, dialog, renameMdPath, renameNode, renameTitle, rootPath])
+  }, [activeMdPath, config, dialog, renameFileName, renameFolderName, renameNode, renameTitle, rootPath])
 
   const handleDeleteNode = useCallback(
     async (node: ProjectTocNode) => {
@@ -425,6 +492,7 @@ export function ComposerView({
 
   const openNewPageDialog = useCallback(
     (contextNode: ProjectTocNode | null) => {
+      if (!config) return
       setCreateContextNodeId(contextNode?.id ?? null)
       setNewPageTitle('')
       let baseDir = docsDir
@@ -435,10 +503,10 @@ export function ComposerView({
         const slash = normalized.lastIndexOf('/')
         baseDir = slash >= 0 ? normalized.slice(0, slash) : docsDir
       }
-      setNewPagePath(`${baseDir}/page.md`)
+      setNewPagePath(defaultNewPagePath(docsDir, baseDir, config.toc))
       setNewPageOpen(true)
     },
-    [docsDir],
+    [config, docsDir],
   )
 
   const openNewFolderDialog = useCallback((contextNode: ProjectTocNode | null) => {
@@ -473,7 +541,7 @@ export function ComposerView({
     setConfig(res.config)
     setNewPageOpen(false)
     setNewPageTitle('')
-    setNewPagePath(`${docsDir}/page.md`)
+    setNewPagePath(defaultNewPagePath(docsDir, docsDir, res.config.toc))
     setCreateContextNodeId(null)
     setActiveMdPath(res.mdPath)
   }, [config, createContextNodeId, dialog, docsDir, newPagePath, newPageTitle, rootPath, t])
@@ -779,25 +847,56 @@ export function ComposerView({
             <DialogTitle>{t('composer.tree.rename')}</DialogTitle>
             <DialogDescription>{t('composer.tree.renameHint')}</DialogDescription>
           </DialogHeader>
-          <div className="grid gap-2">
-            <Input
-              placeholder={t('project.titlePlaceholder')}
-              value={renameTitle}
-              onChange={(e) => setRenameTitle(e.target.value)}
-            />
-            {renameNode?.mdPath ? (
+          <form
+            id="rename-node-form"
+            className="grid gap-3"
+            onSubmit={(e) => {
+              e.preventDefault()
+              void handleRenameNode()
+            }}
+          >
+            <label className="grid gap-1 text-sm">
+              {t('composer.tree.renameTitleLabel')}
               <Input
-                placeholder="page.md"
-                value={renameMdPath}
-                onChange={(e) => setRenameMdPath(e.target.value)}
+                placeholder={t('project.titlePlaceholder')}
+                value={renameTitle}
+                onChange={(e) => setRenameTitle(e.target.value)}
               />
+            </label>
+            {renameNode?.mdPath ? (
+              <label className="grid gap-1 text-sm">
+                {t('composer.tree.renameFileLabel')}
+                <Input
+                  placeholder="index.md"
+                  value={renameFileName}
+                  onChange={(e) => setRenameFileName(e.target.value)}
+                />
+                <span className="text-xs text-muted-foreground">
+                  {t('composer.tree.renameFileHint')}: {renameNode.mdPath.replace(/\\/g, '/')}
+                </span>
+              </label>
             ) : null}
-          </div>
+            {renameNode?.dirPath && !renameNode.mdPath ? (
+              <label className="grid gap-1 text-sm">
+                {t('composer.tree.renameFolderLabel')}
+                <Input
+                  placeholder="guides"
+                  value={renameFolderName}
+                  onChange={(e) => setRenameFolderName(e.target.value)}
+                />
+                <span className="text-xs text-muted-foreground">
+                  {t('composer.tree.renameFolderHint')}: {renameNode.dirPath.replace(/\\/g, '/')}
+                </span>
+              </label>
+            ) : null}
+          </form>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRenameOpen(false)}>
+            <Button type="button" variant="outline" onClick={() => setRenameOpen(false)}>
               {t('project.cancel')}
             </Button>
-            <Button onClick={() => void handleRenameNode()}>{t('composer.save')}</Button>
+            <Button type="submit" form="rename-node-form">
+              {t('composer.save')}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -835,7 +934,7 @@ export function ComposerView({
               onChange={(e) => setNewPageTitle(e.target.value)}
             />
             <Input
-              placeholder={`${docsDir}/page.md`}
+              placeholder={defaultNewPagePath(docsDir, docsDir, config.toc)}
               value={newPagePath}
               onChange={(e) => setNewPagePath(e.target.value)}
             />
