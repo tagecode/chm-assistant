@@ -25,36 +25,36 @@ jobs:
             arch: arm64
             needs_chmcmd: true
             artifact_glob: |
-              release/**/*.dmg
-              release/**/*.zip
+              release/CHM Assistant-v*.dmg
+              release/CHM Assistant-v*.zip
           # macOS x64（Intel）；在 Apple Silicon runner 上交叉编译 native + 应用
           - os: macos-15-intel
             platform: mac
             arch: x64
             needs_chmcmd: true
             artifact_glob: |
-              release/**/*.dmg
-              release/**/*.zip
+              release/CHM Assistant-v*.dmg
+              release/CHM Assistant-v*.zip
           - os: windows-latest
             platform: win
             arch: x64
             needs_chmcmd: true
-            artifact_glob: |
-              release/**/*.exe
+            # 仅上传 NSIS 安装包；排除 elevate.exe、win-unpacked 下的 CHM Assistant.exe
+            artifact_glob: release/CHM Assistant-v*.exe
           - os: ubuntu-latest
             platform: linux
             arch: x64
             needs_chmcmd: true
             artifact_glob: |
-              release/**/*.AppImage
-              release/**/*.deb
+              release/CHM Assistant-v*.AppImage
+              release/CHM Assistant-v*.deb
           - os: ubuntu-24.04-arm
             platform: linux
             arch: arm64
             needs_chmcmd: true
             artifact_glob: |
-              release/**/*.AppImage
-              release/**/*.deb
+              release/CHM Assistant-v*.AppImage
+              release/CHM Assistant-v*.deb
 
     runs-on: ${{ matrix.os }}
 
@@ -129,11 +129,11 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           files: |
-            artifacts/**/*.dmg
-            artifacts/**/*.zip
-            artifacts/**/*.exe
-            artifacts/**/*.AppImage
-            artifacts/**/*.deb
+            artifacts/**/CHM Assistant-v*.dmg
+            artifacts/**/CHM Assistant-v*.zip
+            artifacts/**/CHM Assistant-v*.exe
+            artifacts/**/CHM Assistant-v*.AppImage
+            artifacts/**/CHM Assistant-v*.deb
           generate_release_notes: true
           body: |
             ## 安装说明
