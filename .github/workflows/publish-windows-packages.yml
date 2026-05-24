@@ -109,7 +109,7 @@ jobs:
 
       - name: Install Komac
         if: steps.winget_pkg.outputs.exists != 'true'
-        uses: UnownPlain/install-komac@v1
+        uses: UnownPlain/install-komac@1.2
         with:
           version: ${{ env.KOMAC_VERSION }}
 
