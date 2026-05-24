@@ -61,7 +61,7 @@ CHM 解析基于 [CHMLib](https://github.com/jedwing/CHMLib)（LGPL-2.1），通
 >
 > - 仅阅读 CHM **不需要**安装任何编译器
 > - 创作模块编译 CHM 时，官方安装包已内置 `chmcmd`；Windows 用户也可在设置中指定 `hhc.exe`（HTML Help Workshop）
-> - macOS 未签名构建首次打开时，可能需要在系统设置中允许运行
+> - macOS 未签名构建首次打开时，需在系统设置中允许运行，详见 [docs/mac-install.md](docs/mac-install.md)
 
 编译器详情：[docs/compiler-setup.md](docs/compiler-setup.md)
 
@@ -116,6 +116,7 @@ pnpm run dev
 | [docs/prd.md](docs/prd.md)                                           | 产品需求（PRD）            |
 | [docs/feature.md](docs/feature.md)                                   | 功能规划                 |
 | [docs/mvp.md](docs/mvp.md)                                           | MVP 任务清单             |
+| [docs/mac-install.md](docs/mac-install.md)                           | macOS 安装与 Gatekeeper 放行 |
 | [docs/compiler-setup.md](docs/compiler-setup.md)                     | CHM 编译器安装与许可         |
 | [docs/ci.md](docs/ci.md)                                             | GitHub Actions 打包与发版 |
 | [docs/mvp-acceptance-checklist.md](docs/mvp-acceptance-checklist.md) | MVP 验收清单             |
