@@ -22,13 +22,14 @@ import {
 import {
   buildTocFromFilesystem,
   loadProjectConfig,
+  normalizeTocHideDocsRoot,
   projectConfigPath,
   readUtf8NoBom,
   resolveMdPath,
   saveProjectConfig,
   writeUtf8NoBom,
 } from './project-fs'
-import { defaultIndexMdPath } from './project-docs'
+import { defaultIndexMdPath, projectDocsDir } from './project-docs'
 import {
   createTocFolder,
   createTocMarkdownPage,
@@ -46,8 +47,12 @@ export function loadProject(rootPath: string): ProjectLoadResult | ProjectLoadEr
       message: '未找到有效的 chm-assistant.chmproj',
     }
   }
+  const tocBefore = JSON.stringify(config.toc)
+  config.toc = normalizeTocHideDocsRoot(config.toc, projectDocsDir(config))
   if (config.toc.length === 0) {
     config.toc = buildTocFromFilesystem(rootPath, config.toc, config)
+    saveProjectConfig(rootPath, config)
+  } else if (JSON.stringify(config.toc) !== tocBefore) {
     saveProjectConfig(rootPath, config)
   }
   const defaultMd = config.defaultPage || defaultIndexMdPath(config)

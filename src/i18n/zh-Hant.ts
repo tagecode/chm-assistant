@@ -77,6 +77,8 @@ export const zhHant: Record<MessageKey, string> = {
   'composer.metadata': '專案屬性',
   'composer.metadataHint': '標題、作者、語言與編譯選項將寫入 chm-assistant.chmproj。',
   'composer.refreshToc': '同步目錄',
+  'composer.refreshTocHint':
+    '掃描 docs 下的 Markdown，將磁碟上新增的頁面加入目錄、移除已刪除的檔案。不會覆蓋您已儲存的側欄標題；拖曳排序需手動維護，同步後可能依路徑重新排列。',
   'composer.newPage': '新增頁面',
   'composer.newPage.hint': '填寫顯示標題與相對路徑（須以 .md 結尾）。',
   'composer.newPage.pathHint': '路徑須以 .md 結尾，例如 docs/intro.md',

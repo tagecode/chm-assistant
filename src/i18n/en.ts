@@ -79,6 +79,8 @@ export const en: Record<MessageKey, string> = {
   'composer.metadata': 'Project properties',
   'composer.metadataHint': 'Title, author, language, and compile options are stored in chm-assistant.chmproj.',
   'composer.refreshToc': 'Sync TOC',
+  'composer.refreshTocHint':
+    'Scan Markdown under docs: add new files on disk and remove deleted ones. Keeps saved sidebar titles; drag order may reset to path sort after sync.',
   'composer.newPage': 'New page',
   'composer.newPage.hint': 'Display title and relative path (must end with .md).',
   'composer.newPage.pathHint': 'Path must end with .md, e.g. docs/intro.md',

@@ -3,7 +3,7 @@ import path from 'node:path'
 
 import type { ChmProjectConfig, ProjectTocNode } from '../src/shared/project'
 import { CHMPROJ_FILENAME } from '../src/shared/project'
-import { listProjectMarkdownFiles } from './project-docs'
+import { DEFAULT_DOCS_DIR, listProjectMarkdownFiles, projectDocsDir } from './project-docs'
 
 export function projectConfigPath(rootPath: string): string {
   return path.join(rootPath, CHMPROJ_FILENAME)
@@ -72,74 +72,141 @@ function nodeForFolder(
   }
 }
 
-/** 根据磁盘上的 .md 重建目录树（保留已有 id 时按 mdPath 合并） */
+/** 将误写入 TOC 的 docs 根文件夹展开为其子节点（兼容旧数据） */
+export function normalizeTocHideDocsRoot(
+  toc: ProjectTocNode[],
+  docsDir: string,
+): ProjectTocNode[] {
+  const normDocs = docsDir.replace(/\\/g, '/')
+  const idx = toc.findIndex((n) => !n.mdPath && n.dirPath?.replace(/\\/g, '/') === normDocs)
+  if (idx < 0) {
+    return toc
+  }
+  const docsNode = toc[idx]!
+  const rest = toc.filter((_, i) => i !== idx)
+  return [...rest, ...(docsNode.children ?? [])]
+}
+
+function treeDirRelative(mdPath: string, docsDir: string, hideDocsRoot: boolean): string {
+  const rel = mdPath.replace(/\\/g, '/')
+  const dir = path.posix.dirname(rel)
+  if (dir === '.') {
+    return ''
+  }
+  if (!hideDocsRoot) {
+    return dir
+  }
+  if (dir === docsDir) {
+    return ''
+  }
+  const prefix = `${docsDir}/`
+  if (dir.startsWith(prefix)) {
+    return dir.slice(prefix.length)
+  }
+  return dir
+}
+
+function diskDirFromTreeDir(treeDir: string, docsDir: string, hideDocsRoot: boolean): string {
+  if (!treeDir) {
+    return hideDocsRoot ? docsDir : '.'
+  }
+  if (!hideDocsRoot) {
+    return treeDir
+  }
+  return `${docsDir}/${treeDir}`
+}
+
+/** 根据磁盘上的 .md 重建目录树（合并磁盘变更；保留已有节点的 id 与侧栏标题） */
 export function buildTocFromFilesystem(
   rootPath: string,
   existing?: ProjectTocNode[],
   config?: ChmProjectConfig,
 ): ProjectTocNode[] {
+  const docsDir = config ? projectDocsDir(config) : DEFAULT_DOCS_DIR
+  const hideDocsRoot = fs.existsSync(path.join(rootPath, docsDir))
   const mdFiles = config
     ? listProjectMarkdownFiles(rootPath, config)
-    : listProjectMarkdownFiles(rootPath, { docsDir: 'docs' } as ChmProjectConfig)
+    : listProjectMarkdownFiles(rootPath, { docsDir: DEFAULT_DOCS_DIR } as ChmProjectConfig)
   const idByMd = new Map<string, string>()
-  const walkIds = (nodes: ProjectTocNode[]) => {
+  const titleByMd = new Map<string, string>()
+  const idByDir = new Map<string, string>()
+  const titleByDir = new Map<string, string>()
+  const walkExisting = (nodes: ProjectTocNode[]) => {
     for (const n of nodes) {
       if (n.mdPath) {
-        idByMd.set(n.mdPath.replace(/\\/g, '/'), n.id)
+        const md = n.mdPath.replace(/\\/g, '/')
+        idByMd.set(md, n.id)
+        titleByMd.set(md, n.title)
+      }
+      if (n.dirPath) {
+        const dir = n.dirPath.replace(/\\/g, '/')
+        idByDir.set(dir, n.id)
+        titleByDir.set(dir, n.title)
       }
       if (n.children?.length) {
-        walkIds(n.children)
+        walkExisting(n.children)
       }
     }
   }
   if (existing?.length) {
-    walkIds(existing)
+    walkExisting(existing)
   }
 
   const root: ProjectTocNode[] = []
   const folderMap = new Map<string, ProjectTocNode[]>()
 
-  const ensureFolderChildren = (folderRel: string): ProjectTocNode[] => {
-    if (!folderRel) {
+  const ensureFolderChildren = (treeFolderRel: string): ProjectTocNode[] => {
+    if (!treeFolderRel) {
       return root
     }
-    if (folderMap.has(folderRel)) {
-      return folderMap.get(folderRel)!
+    if (folderMap.has(treeFolderRel)) {
+      return folderMap.get(treeFolderRel)!
     }
-    const parts = folderRel.split('/')
+    const parts = treeFolderRel.split('/')
     let parentList = root
-    let built = ''
+    let treeBuilt = ''
     for (const part of parts) {
-      built = built ? `${built}/${part}` : part
-      if (!folderMap.has(built)) {
-        const folderNode = nodeForFolder(part, built, [])
-        folderMap.set(built, folderNode.children!)
+      treeBuilt = treeBuilt ? `${treeBuilt}/${part}` : part
+      const diskBuilt = diskDirFromTreeDir(treeBuilt, docsDir, hideDocsRoot)
+      if (!folderMap.has(treeBuilt)) {
+        const folderNode = nodeForFolder(titleByDir.get(diskBuilt) ?? part, diskBuilt, [])
+        const existingId = idByDir.get(diskBuilt)
+        if (existingId) {
+          folderNode.id = existingId
+        }
+        folderMap.set(treeBuilt, folderNode.children!)
         parentList.push(folderNode)
         parentList = folderNode.children!
       } else {
         const existingFolder = parentList.find(
-          (n) => !n.mdPath && (n.dirPath?.replace(/\\/g, '/') === built || n.title === part),
+          (n) =>
+            !n.mdPath &&
+            (n.dirPath?.replace(/\\/g, '/') === diskBuilt || n.title === part),
         )
         parentList =
           existingFolder?.children ??
-          folderMap.get(built) ??
+          folderMap.get(treeBuilt) ??
           (() => {
-            const n = nodeForFolder(part, built, [])
+            const n = nodeForFolder(titleByDir.get(diskBuilt) ?? part, diskBuilt, [])
+            const existingId = idByDir.get(diskBuilt)
+            if (existingId) {
+              n.id = existingId
+            }
             parentList.push(n)
             return n.children!
           })()
       }
     }
-    return folderMap.get(folderRel)!
+    return folderMap.get(treeFolderRel)!
   }
 
   for (const mdPath of mdFiles) {
-    const dir = path.posix.dirname(mdPath)
-    const parent = dir === '.' ? root : ensureFolderChildren(dir)
+    const treeDir = treeDirRelative(mdPath, docsDir, hideDocsRoot)
+    const parent = treeDir === '' ? root : ensureFolderChildren(treeDir)
     const id = idByMd.get(mdPath) ?? crypto.randomUUID()
     parent.push({
       id,
-      title: titleFromMdPath(mdPath),
+      title: titleByMd.get(mdPath) ?? titleFromMdPath(mdPath),
       mdPath,
     })
   }

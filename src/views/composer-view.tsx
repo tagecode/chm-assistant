@@ -32,6 +32,7 @@ import {
   promptCompilerMissing,
   promptWindowsViewerCompatRequiresHhc,
 } from '@/lib/compiler-ui'
+import { isProjectDocsRootNode } from '@/lib/toc-utils'
 import { cn } from '@/lib/utils'
 import type { ChmProjectConfig, CompileLogLine, ProjectTocNode, TocMovePlacement } from '@/shared/project'
 import type { WorkspaceTab } from '@/types/workspace'
@@ -646,7 +647,12 @@ export function ComposerView({
             <Columns2 className="mr-1 size-3.5" />
             {t('composer.preview')}
           </Button>
-          <Button variant="outline" size="sm" onClick={() => void handleRefreshToc()}>
+          <Button
+            variant="outline"
+            size="sm"
+            title={t('composer.refreshTocHint')}
+            onClick={() => void handleRefreshToc()}
+          >
             <RefreshCw className="mr-1 size-3.5" />
             {t('composer.refreshToc')}
           </Button>
@@ -694,6 +700,7 @@ export function ComposerView({
               newPage: t('composer.tree.newPage'),
               newFolder: t('composer.tree.newFolder'),
             }}
+            isProtectedNode={(node) => isProjectDocsRootNode(node, config)}
           />
         </aside>
 

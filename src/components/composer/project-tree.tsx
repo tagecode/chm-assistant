@@ -18,6 +18,7 @@ interface ProjectTreeProps {
   onNewPage?: (contextNode: ProjectTocNode | null) => void
   onNewFolder?: (contextNode: ProjectTocNode | null) => void
   contextMenuLabels?: { newPage: string; newFolder: string }
+  isProtectedNode?: (node: ProjectTocNode) => boolean
 }
 
 function resolveDropPlacement(
@@ -40,12 +41,14 @@ function NodeActions({
   node,
   onRename,
   onDelete,
+  protectedNode,
 }: {
   node: ProjectTocNode
   onRename?: (node: ProjectTocNode) => void
   onDelete?: (node: ProjectTocNode) => void
+  protectedNode?: boolean
 }) {
-  if (!onRename && !onDelete) return null
+  if (protectedNode || (!onRename && !onDelete)) return null
   return (
     <span className="ml-auto flex shrink-0 gap-0.5 opacity-0 group-hover:opacity-100">
       {onRename ? (
@@ -159,6 +162,7 @@ function FolderNode({
   node,
   onRename,
   onDelete,
+  protectedNode,
   onContextMenu,
   dragEnabled,
   dropHint,
@@ -174,6 +178,7 @@ function FolderNode({
   node: ProjectTocNode
   onRename?: (node: ProjectTocNode) => void
   onDelete?: (node: ProjectTocNode) => void
+  protectedNode?: boolean
   onContextMenu: (e: MouseEvent, node: ProjectTocNode) => void
   dragEnabled: boolean
   dropHint: DropHint
@@ -191,7 +196,7 @@ function FolderNode({
           dropHintClass(dropHint, node.id, 'inside'),
         )}
         style={{ paddingLeft: `${depth * 12 + 8}px` }}
-        draggable={dragEnabled}
+        draggable={dragEnabled && !protectedNode}
         onContextMenu={(e) => onContextMenu(e, node)}
         onDragStart={(e) => onDragStart(e, node)}
         onDragOver={(e) => onDragOver(e, node)}
@@ -216,7 +221,12 @@ function FolderNode({
           <Folder className="size-3.5 shrink-0 text-primary/80" />
           <span className="truncate">{title}</span>
         </button>
-        <NodeActions node={node} onRename={onRename} onDelete={onDelete} />
+        <NodeActions
+          node={node}
+          onRename={onRename}
+          onDelete={onDelete}
+          protectedNode={protectedNode}
+        />
       </div>
       {open ? children : null}
     </div>
@@ -230,6 +240,7 @@ function TreeNode({
   onSelect,
   onRename,
   onDelete,
+  isProtectedNode,
   onContextMenu,
   dragEnabled,
   dropHint,
@@ -244,6 +255,7 @@ function TreeNode({
   onSelect: (mdPath: string) => void
   onRename?: (node: ProjectTocNode) => void
   onDelete?: (node: ProjectTocNode) => void
+  isProtectedNode?: (node: ProjectTocNode) => boolean
   onContextMenu: (e: MouseEvent, node: ProjectTocNode) => void
   dragEnabled: boolean
   dropHint: DropHint
@@ -255,6 +267,7 @@ function TreeNode({
   const hasChildren = (node.children?.length ?? 0) > 0
   const isFile = Boolean(node.mdPath)
   const active = node.mdPath === activeMdPath
+  const protectedNode = isProtectedNode?.(node) === true
 
   if (isFile) {
     return (
@@ -268,7 +281,7 @@ function TreeNode({
           dropHintClass(dropHint, node.id, 'after'),
         )}
         style={{ paddingLeft: `${depth * 12 + 8}px` }}
-        draggable={dragEnabled}
+        draggable={dragEnabled && !protectedNode}
         onContextMenu={(e) => onContextMenu(e, node)}
         onDragStart={(e) => onDragStart(e, node)}
         onDragOver={(e) => onDragOver(e, node)}
@@ -283,7 +296,12 @@ function TreeNode({
           <FileText className="size-3.5 shrink-0 opacity-70" />
           <span className="truncate">{node.title}</span>
         </button>
-        <NodeActions node={node} onRename={onRename} onDelete={onDelete} />
+        <NodeActions
+          node={node}
+          onRename={onRename}
+          onDelete={onDelete}
+          protectedNode={protectedNode}
+        />
       </div>
     )
   }
@@ -296,6 +314,7 @@ function TreeNode({
       node={node}
       onRename={onRename}
       onDelete={onDelete}
+      protectedNode={protectedNode}
       onContextMenu={onContextMenu}
       dragEnabled={dragEnabled}
       dropHint={dropHint}
@@ -313,6 +332,7 @@ function TreeNode({
           onSelect={onSelect}
           onRename={onRename}
           onDelete={onDelete}
+          isProtectedNode={isProtectedNode}
           onContextMenu={onContextMenu}
           dragEnabled={dragEnabled}
           dropHint={dropHint}
@@ -336,6 +356,7 @@ export function ProjectTree({
   onNewPage,
   onNewFolder,
   contextMenuLabels,
+  isProtectedNode,
 }: ProjectTreeProps) {
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dropHint, setDropHint] = useState<DropHint>(null)
@@ -357,7 +378,7 @@ export function ProjectTree({
   }, [onNewFolder, onNewPage])
 
   const handleDragStart = (e: DragEvent, node: ProjectTocNode) => {
-    if (!onMove) return
+    if (!onMove || isProtectedNode?.(node)) return
     e.dataTransfer.effectAllowed = 'move'
     e.dataTransfer.setData('text/plain', node.id)
     setDraggingId(node.id)
@@ -424,6 +445,7 @@ export function ProjectTree({
                 onSelect={onSelect}
                 onRename={onRename}
                 onDelete={onDelete}
+                isProtectedNode={isProtectedNode}
                 onContextMenu={handleContextMenu}
                 dragEnabled={dragEnabled}
                 dropHint={dropHint}

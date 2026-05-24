@@ -74,6 +74,8 @@ export const zhHans = {
   'composer.metadata': '项目属性',
   'composer.metadataHint': '标题、作者、语言与编译选项将写入 chm-assistant.chmproj。',
   'composer.refreshToc': '同步目录',
+  'composer.refreshTocHint':
+    '扫描 docs 下的 Markdown，把磁盘上新增的页面加入目录、移除已删除的文件。不会覆盖您已保存的侧栏标题；拖拽排序需手动维护，同步后可能按路径重新排列。',
   'composer.newPage': '新建页面',
   'composer.newPage.hint': '填写显示标题与相对路径（须以 .md 结尾）。',
   'composer.newPage.pathHint': '路径须以 .md 结尾，例如 docs/intro.md',

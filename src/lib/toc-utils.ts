@@ -1,4 +1,17 @@
 import type { ChmTocItem } from '@/shared/electron'
+import type { ChmProjectConfig, ProjectTocNode } from '@/shared/project'
+
+export function isProjectDocsRootNode(
+  node: ProjectTocNode,
+  config: Pick<ChmProjectConfig, 'docsDir'>,
+): boolean {
+  if (node.mdPath) {
+    return false
+  }
+  const docsDir = config.docsDir?.replace(/\\/g, '/') || 'docs'
+  return node.dirPath?.replace(/\\/g, '/') === docsDir
+}
+
 
 export function findTocBreadcrumb(
   items: ChmTocItem[],
