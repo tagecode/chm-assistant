@@ -51,18 +51,31 @@ function runSmokeBundle() {
 
 function runElectronSmoke() {
   const smokeJs = path.join(ROOT, 'dist-electron/mvp-smoke.js')
+  const nativeResultJson = path.join(ROOT, 'test-results/mvp-acceptance-native.json')
   if (!fs.existsSync(smokeJs)) {
     console.error(`${colors.red}缺少 ${smokeJs}，请先完整运行 test:mvp${colors.reset}`)
     process.exit(1)
   }
-  const electronBin = path.join(ROOT, 'node_modules/.bin/electron')
+  fs.rmSync(nativeResultJson, { force: true })
+  const electronBin =
+    process.platform === 'win32'
+      ? path.join(ROOT, 'node_modules', 'electron', 'dist', 'electron.exe')
+      : path.join(ROOT, 'node_modules', '.bin', 'electron')
   const bin = fs.existsSync(electronBin) ? electronBin : 'electron'
-  console.log(`${colors.dim}▶ ${bin} dist-electron/mvp-smoke.js${colors.reset}`)
-  const r = spawnSync(bin, [smokeJs], {
+  const electronArgs = process.platform === 'linux' && process.env.CI ? ['--no-sandbox', smokeJs] : [smokeJs]
+  const command = process.platform === 'linux' && process.env.CI ? 'xvfb-run' : bin
+  const args = command === 'xvfb-run' ? ['-a', bin, ...electronArgs] : electronArgs
+  console.log(`${colors.dim}▶ ${command} ${args.join(' ')}${colors.reset}`)
+  const env = { ...process.env }
+  delete env.ELECTRON_RUN_AS_NODE
+  const r = spawnSync(command, args, {
     cwd: ROOT,
     stdio: 'inherit',
-    env: { ...process.env, ELECTRON_RUN_AS_NODE: undefined },
+    env,
   })
+  if (r.error) {
+    console.error(`${colors.red}${r.error.message}${colors.reset}`)
+  }
   return r.status ?? 1
 }
 

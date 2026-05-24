@@ -6,6 +6,7 @@ sudo apt-get update
 sudo apt-get install -y --no-install-recommends \
   build-essential \
   python3 \
-  libfuse2
+  libfuse2 \
+  xvfb
 
 echo "[ci] Linux build deps installed"
