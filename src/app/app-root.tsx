@@ -28,6 +28,7 @@ import { HomeView } from '@/views/home-view'
 import { ReaderView } from '@/views/reader-view'
 import { ComposerView, type ComposerTabHandle } from '@/views/composer-view'
 import { SettingsView } from '@/views/settings-view'
+import { APP_VERSION } from '@/lib/app-version'
 import { AboutView } from '@/views/about-view'
 import { cn } from '@/lib/utils'
 
@@ -40,7 +41,7 @@ const CHM_OPEN_ERR: Record<ChmOpenErrorCode, MessageKey> = {
 
 const browserMetadata: AppMetadata = {
   name: 'CHM Assistant',
-  version: '0.1.0',
+  version: APP_VERSION,
   electron: 'browser',
   chromium: 'n/a',
   node: 'n/a',

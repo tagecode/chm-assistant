@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { APP_VERSION } from '@/lib/app-version'
 import type { AppMetadata, ThemeMode } from '@/shared/electron'
 
 const themeOptions: Array<{
@@ -38,7 +39,7 @@ const starterTasks = [
 
 const browserFallbackMetadata: AppMetadata = {
   name: 'CHM Assistant',
-  version: '0.1.0',
+  version: APP_VERSION,
   electron: 'browser-preview',
   chromium: 'via-vite',
   node: 'n/a',

@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { useAppDialog } from '@/components/app-dialog-provider'
 import { useI18n } from '@/i18n/i18n-context'
+import { formatAppVersion } from '@/lib/app-version'
 import type { AppMetadata } from '@/shared/electron'
 
 interface AboutViewProps {
@@ -20,7 +21,7 @@ export function AboutView({ metadata, onBack }: AboutViewProps) {
       <h1 className="text-2xl font-semibold">{t('about.title')}</h1>
       <p className="mt-2 text-muted-foreground">{t('about.subtitle')}</p>
       <p className="mt-6 text-sm">
-        {t('about.version')}: {metadata.version}
+        {t('about.version')}: {formatAppVersion(metadata.version)}
       </p>
       <p className="mt-4 text-sm leading-7 text-muted-foreground">{t('about.body')}</p>
       <div className="mt-8 rounded-xl border border-border/60 bg-card/50 p-4 text-sm">
