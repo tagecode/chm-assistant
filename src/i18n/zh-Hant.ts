@@ -165,6 +165,11 @@ export const zhHant: Record<MessageKey, string> = {
   'about.title': '關於 CHM 助手',
   'about.subtitle': '跨平台 CHM 閱讀與創作',
   'about.version': '版本',
+  'about.contactSection': '專案與聯絡',
+  'about.github': 'GitHub',
+  'about.author': '作者',
+  'about.authorValue': 'tagecode（微信）',
+  'about.email': '電子郵件',
   'about.body':
     '基於 Electron、React 與 CHMLib（LGPL-2.1）等開源元件。詳見 NOTICES。',
   'about.chmlib': 'CHMLib',

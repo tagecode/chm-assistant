@@ -171,6 +171,11 @@ export const en: Record<MessageKey, string> = {
   'about.title': 'About CHM Assistant',
   'about.subtitle': 'Cross-platform CHM reader and authoring',
   'about.version': 'Version',
+  'about.contactSection': 'Project & contact',
+  'about.github': 'GitHub',
+  'about.author': 'Author',
+  'about.authorValue': 'tagecode (WeChat)',
+  'about.email': 'Email',
   'about.body':
     'Built with Electron, React, CHMLib (LGPL-2.1), and other OSS. See NOTICES.',
   'about.chmlib': 'CHMLib',

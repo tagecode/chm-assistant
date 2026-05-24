@@ -161,6 +161,11 @@ export const zhHans = {
   'about.title': '关于 CHM 助手',
   'about.subtitle': '一款跨平台 CHM 文件的阅读与创作助手',
   'about.version': '版本',
+  'about.contactSection': '项目与联系',
+  'about.github': 'GitHub',
+  'about.author': '作者',
+  'about.authorValue': 'tagecode（微信）',
+  'about.email': '邮箱',
   'about.body':
     '基于 Electron、React 与 CHMLib（LGPL-2.1）等开源组件。详细许可参见 NOTICES。',
   'about.chmlib': 'CHMLib',
