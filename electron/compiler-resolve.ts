@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -94,9 +94,11 @@ const WIN_HHC_SYSTEM_CANDIDATES = [
 
 function resolveExecutableOnPath(name: string): string | null {
   try {
-    const cmd = process.platform === 'win32' ? `where ${name}` : `command -v ${name}`
-    const out = execSync(cmd, { encoding: 'utf8', shell: true }).trim()
-    const first = out.split(/\r?\n/).find((line) => line.trim())?.trim()
+    const out =
+      process.platform === 'win32'
+        ? execFileSync('where.exe', [name], { encoding: 'utf8', windowsHide: true })
+        : execFileSync('which', [name], { encoding: 'utf8' })
+    const first = out.trim().split(/\r?\n/).find((line) => line.trim())?.trim()
     if (first && fs.existsSync(first)) {
       return first
     }
