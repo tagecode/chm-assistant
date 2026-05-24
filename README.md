@@ -1,4 +1,4 @@
-# CHM Assistant
+# CHM 助手 · CHM Assistant
 
 > 一款跨平台 CHM 阅读、使用 Markdown 创作与一键编译 CHM 的桌面应用
 
@@ -14,7 +14,7 @@
 
 ## 简介
 
-**CHM Assistant** 将 CHM 阅读与 Markdown 创作整合在同一款桌面应用中：打开 `.chm` 文件阅读，用 Markdown 维护帮助项目，一键编译并在内置阅读器中预览成品。
+**CHM 助手**（**CHM Assistant**）将 CHM 阅读与 Markdown 创作整合在同一款桌面应用中：打开 `.chm` 文件阅读，用 Markdown 维护帮助项目，一键编译并在内置阅读器中预览成品。
 
 **v0.1.0** 为首个公开发布版本，覆盖 MVP 核心能力：CHM 阅读、Markdown 创作、跨平台编译与内置预览。更多规划功能见 [docs/feature.md](docs/feature.md)。
 
@@ -51,7 +51,7 @@ CHM 解析基于 [CHMLib](https://github.com/jedwing/CHMLib)（LGPL-2.1），通
 
 ### 快速上手
 
-1. 安装并启动 CHM Assistant
+1. 安装并启动 CHM 助手
 2. **阅读 CHM** — 首页选择「打开 CHM 文件」，或直接拖拽 `.chm` 到窗口
 3. **创作与编译** — 新建或打开创作项目，编写 Markdown 后点击编译；成品会在内置阅读器中打开
 
@@ -142,7 +142,7 @@ pnpm run dev
 
 ## English
 
-**CHM Assistant** is a cross-platform desktop app for reading CHM files, authoring help projects from Markdown, and compiling preview builds in a built-in reader.
+**CHM Assistant** (中文名：**CHM 助手**) is a cross-platform desktop app for reading CHM files, authoring help projects from Markdown, and compiling preview builds in a built-in reader.
 
 **v0.1.0** is the first public release with MVP scope: CHM reading, Markdown authoring, cross-platform compilation, and built-in preview.
 
