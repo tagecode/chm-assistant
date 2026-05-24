@@ -146,6 +146,11 @@ export const en: Record<MessageKey, string> = {
   'settings.encoding.auto': 'Auto-detect',
   'settings.encoding.utf8': 'UTF-8',
   'settings.encoding.gbk': 'GBK / GB18030',
+  'settings.recentMax': 'Recent items',
+  'settings.recentMaxHint':
+    'Maximum CHM files and projects kept on the home screen. Older entries are removed when the limit is exceeded.',
+  'settings.recentMaxLabel': 'Maximum items',
+  'settings.recentMaxRange': 'Enter an integer from 1 to 100. Default is 24.',
   'settings.compiler': 'CHM compiler',
   'settings.compiler.hint':
     'All platforms prefer the bundled chmcmd (GPL-2). On Windows, system hhc.exe is used only when chmcmd is unavailable—the app never bundles Microsoft’s compiler.',

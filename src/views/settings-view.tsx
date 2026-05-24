@@ -6,6 +6,11 @@ import { Input } from '@/components/ui/input'
 import { useI18n } from '@/i18n/i18n-context'
 import { compilerStatusMessageKey } from '@/lib/compiler-ui'
 import { cn } from '@/lib/utils'
+import {
+  RECENT_MAX_COUNT_DEFAULT,
+  RECENT_MAX_COUNT_MAX,
+  RECENT_MAX_COUNT_MIN,
+} from '@/shared/recent'
 import type { CompilerStatus, LocaleMode, ThemeMode } from '@/shared/electron'
 
 interface SettingsViewProps {
@@ -17,6 +22,8 @@ interface SettingsViewProps {
   onReaderEncodingChange: (v: string) => void
   chmCompilerPath: string
   onChmCompilerPathChange: (v: string) => void
+  recentMaxCount: number
+  onRecentMaxCountChange: (v: number) => void
   onBack: () => void
 }
 
@@ -39,10 +46,13 @@ export function SettingsView({
   onReaderEncodingChange,
   chmCompilerPath,
   onChmCompilerPathChange,
+  recentMaxCount,
+  onRecentMaxCountChange,
   onBack,
 }: SettingsViewProps) {
   const { t } = useI18n()
   const [compilerStatus, setCompilerStatus] = useState<CompilerStatus | null>(null)
+  const [recentMaxDraft, setRecentMaxDraft] = useState(String(recentMaxCount))
 
   const refreshCompilerStatus = useCallback(async () => {
     const api = window.electronAPI
@@ -62,6 +72,10 @@ export function SettingsView({
     }
   }, [chmCompilerPath])
 
+  useEffect(() => {
+    setRecentMaxDraft(String(recentMaxCount))
+  }, [recentMaxCount])
+
   function handleTheme(next: ThemeMode) {
     void onThemeChange(next)
   }
@@ -70,6 +84,15 @@ export function SettingsView({
     onChmCompilerPathChange(next)
     await window.electronAPI?.setChmCompilerPath(next)
     await refreshCompilerStatus()
+  }
+
+  async function persistRecentMaxCount(raw: string) {
+    const parsed = Number.parseInt(raw, 10)
+    const persisted =
+      (await window.electronAPI?.setRecentMaxCount(parsed)) ??
+      (Number.isFinite(parsed) ? parsed : RECENT_MAX_COUNT_DEFAULT)
+    onRecentMaxCountChange(persisted)
+    setRecentMaxDraft(String(persisted))
   }
 
   return (
@@ -151,6 +174,25 @@ export function SettingsView({
             </Button>
           ))}
         </div>
+      </section>
+
+      <section className="mb-10 space-y-3">
+        <h2 className="text-sm font-medium text-muted-foreground">{t('settings.recentMax')}</h2>
+        <p className="text-xs text-muted-foreground">{t('settings.recentMaxHint')}</p>
+        <label className="grid max-w-xs gap-1 text-sm">
+          {t('settings.recentMaxLabel')}
+          <Input
+            type="number"
+            min={RECENT_MAX_COUNT_MIN}
+            max={RECENT_MAX_COUNT_MAX}
+            value={recentMaxDraft}
+            onChange={(e) => setRecentMaxDraft(e.target.value)}
+            onBlur={() => void persistRecentMaxCount(recentMaxDraft)}
+          />
+        </label>
+        <p className="text-xs text-muted-foreground">
+          {t('settings.recentMaxRange')}
+        </p>
       </section>
 
       <section className="space-y-3">

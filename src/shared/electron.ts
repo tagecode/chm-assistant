@@ -91,6 +91,8 @@ export interface AppSettings {
   readerEncoding: string
   /** 自定义 CHM 编译器路径；空字符串为自动 */
   chmCompilerPath: string
+  /** 首页「最近记录」最多保留条数 */
+  recentMaxCount: number
 }
 
 export type ReaderSidePanel = 'toc' | 'index' | 'search' | 'bookmarks'
@@ -132,6 +134,7 @@ export interface ElectronApi {
   setLocale: (locale: LocaleMode) => Promise<LocaleMode>
   setReaderEncoding: (encoding: string) => Promise<string>
   setChmCompilerPath: (path: string) => Promise<string>
+  setRecentMaxCount: (count: number) => Promise<number>
   getCompilerStatus: () => Promise<CompilerStatus>
   pickCompilerDialog: () => Promise<string | null>
   openExternalUrl: (url: string) => Promise<void>

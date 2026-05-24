@@ -40,6 +40,7 @@ import type {
   ThemeMode,
   WorkspaceSession,
 } from '../src/shared/electron'
+import { clampRecentMaxCount } from '../src/shared/recent'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const rendererDistPath = path.join(__dirname, '../dist/index.html')
@@ -78,13 +79,24 @@ const settingsStore = new Store<PersistedState>({
 let mainWindow: BrowserWindow | null = null
 const chmSearchAbortBySession = new Map<string, AbortController>()
 
+function getRecentMaxCount(): number {
+  return clampRecentMaxCount(settingsStore.get('recentMaxCount'))
+}
+
+function trimRecentList(max = getRecentMaxCount()): void {
+  const recent = settingsStore.get('recent')
+  if (recent.length > max) {
+    settingsStore.set('recent', recent.slice(0, max))
+  }
+}
+
 function pushRecent(entry: Omit<RecentEntry, 'openedAt'>): RecentEntry[] {
   const recent = [...settingsStore.get('recent')]
   const next = recent.filter(
     (item) => !(item.path === entry.path && item.type === entry.type),
   )
   next.unshift({ ...entry, openedAt: Date.now() })
-  settingsStore.set('recent', next.slice(0, 24))
+  settingsStore.set('recent', next.slice(0, getRecentMaxCount()))
   return settingsStore.get('recent')
 }
 
@@ -195,6 +207,7 @@ function registerIpcHandlers() {
     locale: settingsStore.get('locale'),
     readerEncoding: settingsStore.get('readerEncoding'),
     chmCompilerPath: settingsStore.get('chmCompilerPath') ?? '',
+    recentMaxCount: getRecentMaxCount(),
   }))
 
   ipcMain.handle('settings:set-theme', (_event, theme: ThemeMode) => {
@@ -215,6 +228,13 @@ function registerIpcHandlers() {
   ipcMain.handle('settings:set-chm-compiler-path', (_event, compilerPath: string) => {
     settingsStore.set('chmCompilerPath', compilerPath)
     return compilerPath
+  })
+
+  ipcMain.handle('settings:set-recent-max-count', (_event, count: number) => {
+    const next = clampRecentMaxCount(count)
+    settingsStore.set('recentMaxCount', next)
+    trimRecentList(next)
+    return next
   })
 
   ipcMain.handle('compiler:get-status', () =>
@@ -245,7 +265,10 @@ function registerIpcHandlers() {
     return filePaths[0] ?? null
   })
 
-  ipcMain.handle('recent:get', () => settingsStore.get('recent'))
+  ipcMain.handle('recent:get', () => {
+    trimRecentList()
+    return settingsStore.get('recent')
+  })
 
   ipcMain.handle(
     'recent:add',

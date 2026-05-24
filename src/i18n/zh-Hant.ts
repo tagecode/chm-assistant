@@ -142,6 +142,10 @@ export const zhHant: Record<MessageKey, string> = {
   'settings.encoding.auto': '自動偵測',
   'settings.encoding.utf8': 'UTF-8',
   'settings.encoding.gbk': 'GBK / GB18030',
+  'settings.recentMax': '最近紀錄',
+  'settings.recentMaxHint': '首頁「最近紀錄」列表最多保留的 CHM 與專案條數，超出後會移除較早的紀錄。',
+  'settings.recentMaxLabel': '最多保留條數',
+  'settings.recentMaxRange': '可填 1–100 之間的整數，預設 24。',
   'settings.compiler': 'CHM 編譯器',
   'settings.compiler.hint':
     '各平台優先使用安裝包內建 chmcmd（GPL-2）。Windows 亦可在未偵測到 chmcmd 時回退系統 hhc.exe；不會捆綁微軟編譯器。',

@@ -138,6 +138,10 @@ export const zhHans = {
   'settings.encoding.auto': '自动检测',
   'settings.encoding.utf8': 'UTF-8',
   'settings.encoding.gbk': 'GBK / GB18030',
+  'settings.recentMax': '最近记录',
+  'settings.recentMaxHint': '首页「最近记录」列表最多保留的 CHM 与项目条数，超出后会移除较早的记录。',
+  'settings.recentMaxLabel': '最多保留条数',
+  'settings.recentMaxRange': '可填 1–100 之间的整数，默认 24。',
   'settings.compiler': 'CHM 编译器',
   'settings.compiler.hint':
     '各平台优先使用安装包内置 chmcmd（GPL-2）。Windows 亦可在未检测到 chmcmd 时回退系统 hhc.exe；不会捆绑微软编译器。',

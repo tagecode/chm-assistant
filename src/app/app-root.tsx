@@ -13,6 +13,7 @@ import type { ReaderUiState, WorkspaceTab } from '@/types/workspace'
 import { AppDialogProvider, useAppDialog } from '@/components/app-dialog-provider'
 import { I18nProvider, useI18n } from '@/i18n/i18n-context'
 import { applyTheme } from '@/lib/theme'
+import { APP_VERSION } from '@/lib/app-version'
 import { buildWorkspaceSession } from '@/lib/reader-persist'
 import {
   dedupeWorkspaceTabs,
@@ -28,7 +29,7 @@ import { HomeView } from '@/views/home-view'
 import { ReaderView } from '@/views/reader-view'
 import { ComposerView, type ComposerTabHandle } from '@/views/composer-view'
 import { SettingsView } from '@/views/settings-view'
-import { APP_VERSION } from '@/lib/app-version'
+import { RECENT_MAX_COUNT_DEFAULT } from '@/shared/recent'
 import { AboutView } from '@/views/about-view'
 import { cn } from '@/lib/utils'
 
@@ -94,6 +95,7 @@ function AppInner() {
   const [theme, setTheme] = useState<ThemeMode>('system')
   const [readerEncoding, setReaderEncoding] = useState('auto')
   const [chmCompilerPath, setChmCompilerPath] = useState('')
+  const [recentMaxCount, setRecentMaxCount] = useState(RECENT_MAX_COUNT_DEFAULT)
   const [bootstrapped, setBootstrapped] = useState(false)
   const [closeTabPrompt, setCloseTabPrompt] = useState<{ tabId: string } | null>(null)
   const [chmOpening, setChmOpening] = useState<{
@@ -144,6 +146,7 @@ function AppInner() {
       setTheme(s.theme)
       setReaderEncoding(s.readerEncoding)
       setChmCompilerPath(s.chmCompilerPath ?? '')
+      setRecentMaxCount(s.recentMaxCount)
       setLocaleMode(s.locale)
       applyTheme(s.theme)
 
@@ -542,6 +545,11 @@ function AppInner() {
             onReaderEncodingChange={setReaderEncoding}
             chmCompilerPath={chmCompilerPath}
             onChmCompilerPathChange={setChmCompilerPath}
+            recentMaxCount={recentMaxCount}
+            onRecentMaxCountChange={(count) => {
+              setRecentMaxCount(count)
+              void refreshRecent()
+            }}
             onBack={() => setOverlay(null)}
           />
         ) : overlay === 'about' ? (
