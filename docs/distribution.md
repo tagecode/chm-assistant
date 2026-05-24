@@ -41,7 +41,7 @@ Release 工作流（[`.github/workflows/release.yml`](../.github/workflows/relea
 2. Release **published** 后，`publish-windows-packages.yml` 自动运行：
    - 从 Release 资产中选取 `*-win-x64.exe`（排除 `elevate.exe` 等）。
    - **Chocolatey**：更新 nuspec → `choco pack` → `choco push`。
-   - **WinGet**：若包已存在于 `winget-pkgs` 则用 `winget-releaser` 更新；否则用 **`komac new`** 提交首个 PR。
+   - **WinGet**：若包已存在于 `winget-pkgs` 则用 `winget-releaser` 更新；否则用 **`komac submit`** 提交仓库内 manifest 开首个 PR（`komac new` 在 CI 非 TTY 环境不可用）。
 
 ### 仓库 Secrets（必配）
 
@@ -50,7 +50,7 @@ Release 工作流（[`.github/workflows/release.yml`](../.github/workflows/relea
 | `CHOCO_API_KEY` | Chocolatey | 你已获取；在 Settings → Secrets → Actions 中添加 |
 | `WINGET_TOKEN` | WinGet | **Classic** PAT，`public_repo` scope；需 fork [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs) |
 
-WinGet 首次上架也已由 CI 自动处理（`komac new`），无需再手动复制 manifest。详见 [`packaging/winget/README.md`](../packaging/winget/README.md)。
+WinGet 首次上架也已由 CI 自动处理（`komac submit`），无需再手动复制 manifest。详见 [`packaging/winget/README.md`](../packaging/winget/README.md)。
 
 ### 安装命令（上架后）
 

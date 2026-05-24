@@ -1,5 +1,5 @@
 # Created for initial submission to microsoft/winget-pkgs
-# PackageIdentifier: TageCode.CHMAssistant
+PackageIdentifier: TageCode.CHMAssistant
 PackageVersion: 0.1.0
 PackageLocale: en-US
 Publisher: TageCode
@@ -23,5 +23,5 @@ LicenseUrl: https://github.com/tagecode/chm-assistant/blob/main/LICENSE
 Copyright: Copyright (c) TageCode
 CopyrightUrl: https://github.com/tagecode/chm-assistant/blob/main/LICENSE
 ReleaseNotesUrl: https://github.com/tagecode/chm-assistant/releases/tag/v0.1.0
-ManifestType: locale
+ManifestType: defaultLocale
 ManifestVersion: 1.6.0

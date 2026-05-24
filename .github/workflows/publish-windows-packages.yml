@@ -104,8 +104,27 @@ jobs:
             echo "Package already in winget-pkgs; will use winget-releaser."
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
-            echo "First WinGet submission; will use komac new."
+            echo "First WinGet submission; will use komac submit."
           fi
+
+      - name: Checkout
+        if: steps.winget_pkg.outputs.exists != 'true'
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        if: steps.winget_pkg.outputs.exists != 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Update WinGet manifest files
+        if: steps.winget_pkg.outputs.exists != 'true'
+        run: >
+          node scripts/update-winget-manifest.mjs
+          --version "${{ needs.resolve.outputs.version }}"
+          --tag "${{ needs.resolve.outputs.tag }}"
+          --url "${{ needs.resolve.outputs.url }}"
+          --sha256 "${{ needs.resolve.outputs.sha256 }}"
 
       - name: Install Komac
         if: steps.winget_pkg.outputs.exists != 'true'
@@ -113,33 +132,13 @@ jobs:
         with:
           version: ${{ env.KOMAC_VERSION }}
 
-      - name: Submit initial WinGet package (komac new)
+      - name: Submit initial WinGet package (komac submit)
         if: steps.winget_pkg.outputs.exists != 'true'
         shell: bash
-        env:
-          VERSION: ${{ needs.resolve.outputs.version }}
-          TAG: ${{ needs.resolve.outputs.tag }}
-          INSTALLER_URL: ${{ needs.resolve.outputs.url }}
         run: |
           komac sync --token "$WINGET_TOKEN"
-          komac new "$PACKAGE_ID" \
-            --version "$VERSION" \
-            --urls "$INSTALLER_URL" \
-            --publisher "TageCode" \
-            --publisher-url "https://github.com/tagecode" \
-            --publisher-support-url "https://github.com/tagecode/chm-assistant/issues" \
-            --package-name "CHM Assistant" \
-            --package-url "https://github.com/tagecode/chm-assistant" \
-            --moniker "chm-assistant" \
-            --author "TageCode" \
-            --license "MIT" \
-            --license-url "https://github.com/tagecode/chm-assistant/blob/main/LICENSE" \
-            --copyright "Copyright (c) TageCode" \
-            --short-description "Cross-platform CHM reader and Markdown authoring tool" \
-            --release-notes-url "https://github.com/tagecode/chm-assistant/releases/tag/${TAG}" \
-            --created-with "chm-assistant CI" \
-            --created-with-url "https://github.com/tagecode/chm-assistant" \
-            --submit \
+          komac submit "packaging/winget/manifests/t/TageCode/CHMAssistant/${{ needs.resolve.outputs.version }}" \
+            --yes \
             --token "$WINGET_TOKEN"
 
       - name: Update WinGet package (winget-releaser)

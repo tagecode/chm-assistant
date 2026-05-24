@@ -1,5 +1,5 @@
 # Created for initial submission to microsoft/winget-pkgs
-# PackageIdentifier: TageCode.CHMAssistant
+PackageIdentifier: TageCode.CHMAssistant
 PackageVersion: 0.1.0
 Installers:
 - Architecture: x64
