@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -91,6 +92,20 @@ const WIN_HHC_SYSTEM_CANDIDATES = [
   ),
 ]
 
+function resolveExecutableOnPath(name: string): string | null {
+  try {
+    const cmd = process.platform === 'win32' ? `where ${name}` : `command -v ${name}`
+    const out = execSync(cmd, { encoding: 'utf8', shell: true }).trim()
+    const first = out.split(/\r?\n/).find((line) => line.trim())?.trim()
+    if (first && fs.existsSync(first)) {
+      return first
+    }
+  } catch {
+    /* ignore */
+  }
+  return null
+}
+
 function resolveExistingFile(candidate: string): string | null {
   if (!candidate) {
     return null
@@ -98,7 +113,7 @@ function resolveExistingFile(candidate: string): string | null {
   if (path.isAbsolute(candidate) || candidate.includes(path.sep) || candidate.includes('/')) {
     return fs.existsSync(candidate) ? candidate : null
   }
-  return candidate
+  return resolveExecutableOnPath(candidate)
 }
 
 function resolveCustomCompiler(customPath: string): ResolvedCompiler | null {
@@ -121,11 +136,18 @@ function resolveBundledChmcmd(): ResolvedCompiler | null {
 }
 
 function resolveSystemChmcmd(): ResolvedCompiler | null {
-  const systemNames =
+  const absoluteCandidates =
     process.platform === 'win32'
-      ? ['chmcmd.exe', 'chmcmd']
-      : ['chmcmd', '/usr/local/bin/chmcmd', '/opt/homebrew/bin/chmcmd']
-  for (const name of systemNames) {
+      ? []
+      : ['/opt/homebrew/bin/chmcmd', '/usr/local/bin/chmcmd', '/usr/bin/chmcmd']
+  for (const p of absoluteCandidates) {
+    if (fs.existsSync(p)) {
+      return { cmd: p, args: [], kind: 'chmcmd', source: 'system' }
+    }
+  }
+
+  const names = process.platform === 'win32' ? ['chmcmd.exe', 'chmcmd'] : ['chmcmd']
+  for (const name of names) {
     const p = resolveExistingFile(name)
     if (p) {
       return { cmd: p, args: [], kind: 'chmcmd', source: 'system' }

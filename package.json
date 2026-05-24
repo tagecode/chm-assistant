@@ -107,8 +107,8 @@
         ]
       },
       {
-        "from": "resources/compilers/${os}-${arch}",
-        "to": "compilers/${os}-${arch}",
+        "from": "resources/compilers/${platform}-${arch}",
+        "to": "compilers/${platform}-${arch}",
         "filter": [
           "**/*"
         ]
