@@ -28,7 +28,10 @@ import {
 import { UnsavedChangesDialog } from '@/components/unsaved-changes-dialog'
 import { Input } from '@/components/ui/input'
 import { useI18n } from '@/i18n/i18n-context'
-import { promptCompilerMissing } from '@/lib/compiler-ui'
+import {
+  promptCompilerMissing,
+  promptWindowsViewerCompatRequiresHhc,
+} from '@/lib/compiler-ui'
 import { cn } from '@/lib/utils'
 import type { ChmProjectConfig, CompileLogLine, ProjectTocNode, TocMovePlacement } from '@/shared/project'
 import type { WorkspaceTab } from '@/types/workspace'
@@ -142,6 +145,7 @@ export function ComposerView({
   const [renameFileName, setRenameFileName] = useState('')
   const [renameFolderName, setRenameFolderName] = useState('')
   const [leavePrompt, setLeavePrompt] = useState<{ targetMdPath: string } | null>(null)
+  const [isWindows, setIsWindows] = useState(false)
 
   const rootPath = tab.path
 
@@ -151,6 +155,9 @@ export function ComposerView({
       setLoadError(t('composer.error.noElectron'))
       return
     }
+    void api.getAppMetadata().then((meta) => {
+      setIsWindows(meta.platform === 'win32')
+    })
     void (async () => {
       const loaded = await api.loadProject(rootPath)
       if (!loaded.ok) {
@@ -366,6 +373,37 @@ export function ComposerView({
       onOpenChm(result.chmPath)
     }
   }, [config, dialog, dirty, onOpenChm, rootPath, saveCurrent, t])
+
+  const handleWindowsViewerCompatChange = useCallback(
+    async (checked: boolean) => {
+      if (!config) return
+      if (!checked) {
+        setConfig({
+          ...config,
+          compile: {
+            ...config.compile,
+            windowsViewerCompat: false,
+          },
+        })
+        return
+      }
+      const api = window.electronAPI
+      if (!api) return
+      const status = await api.getCompilerStatus()
+      if (status.kind !== 'hhc') {
+        await promptWindowsViewerCompatRequiresHhc(dialog)
+        return
+      }
+      setConfig({
+        ...config,
+        compile: {
+          ...config.compile,
+          windowsViewerCompat: true,
+        },
+      })
+    },
+    [config, dialog],
+  )
 
   const handleSaveMeta = useCallback(async () => {
     const api = window.electronAPI
@@ -831,27 +869,21 @@ export function ComposerView({
               />
               {t('composer.meta.openAfterCompile')}
             </label>
-            <div className="grid gap-1">
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={config.compile?.windowsViewerCompat === true}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      compile: {
-                        ...config.compile,
-                        windowsViewerCompat: e.target.checked,
-                      },
-                    })
-                  }
-                />
-                {t('composer.meta.windowsViewerCompat')}
-              </label>
-              <p className="text-xs text-muted-foreground">
-                {t('composer.meta.windowsViewerCompatHint')}
-              </p>
-            </div>
+            {isWindows ? (
+              <div className="grid gap-1">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={config.compile?.windowsViewerCompat === true}
+                    onChange={(e) => void handleWindowsViewerCompatChange(e.target.checked)}
+                  />
+                  {t('composer.meta.windowsViewerCompat')}
+                </label>
+                <p className="text-xs text-muted-foreground">
+                  {t('composer.meta.windowsViewerCompatHint')}
+                </p>
+              </div>
+            ) : null}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setMetaOpen(false)}>

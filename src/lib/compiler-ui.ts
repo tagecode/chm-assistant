@@ -15,6 +15,15 @@ export function compilerStatusMessageKey(status: CompilerStatus): MessageKey {
   return STATUS_KEYS[status.messageKey]
 }
 
+export async function promptWindowsViewerCompatRequiresHhc(
+  dialog: AppDialogApi,
+): Promise<void> {
+  await dialog.showAlert({
+    titleKey: 'composer.meta.windowsViewerCompatBlockedTitle',
+    descriptionKey: 'composer.meta.windowsViewerCompatBlocked',
+  })
+}
+
 export async function promptCompilerMissing(
   status: CompilerStatus,
   t: (key: MessageKey) => string,

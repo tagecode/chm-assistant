@@ -100,6 +100,9 @@ export const zhHant: Record<MessageKey, string> = {
   'composer.meta.windowsViewerCompat': '相容 Windows 說明檢視器',
   'composer.meta.windowsViewerCompatHint':
     '將 HTML 與目錄/索引轉為 GBK/Big5，以便 Windows hh.exe 顯示中文。須使用 hhc.exe 編譯（UTF-8 Beta 系統上 chmcmd 無法產生有效 CHM）。未安裝時可在設定中下載 HTML Help Workshop 並指定 hhc.exe 路徑。',
+  'composer.meta.windowsViewerCompatBlockedTitle': '無法啟用',
+  'composer.meta.windowsViewerCompatBlocked':
+    '「相容 Windows 說明檢視器」須使用 hhc.exe 編譯。請在設定中將 CHM 編譯器指定為 hhc.exe，或安裝 HTML Help Workshop 後選擇其路徑。',
   'composer.error.noElectron': '創作功能需在 Electron 桌面環境中執行。',
   'composer.error.saveFailed': '儲存失敗',
   'composer.importAssets': '匯入資源',
