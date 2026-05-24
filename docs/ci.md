@@ -89,5 +89,6 @@ Tag 校验：`node scripts/check-release-version.mjs`
 
 ## 相关文档
 
+- [distribution.md](./distribution.md) — Chocolatey、Snap 等包管理器分发准备
 - [compiler-setup.md](./compiler-setup.md)
 - [mvp-acceptance-signoff.md](./mvp-acceptance-signoff.md)
