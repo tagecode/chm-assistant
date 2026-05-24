@@ -20,7 +20,7 @@ jobs:
       matrix:
         include:
           # macOS arm64（Apple Silicon）
-          - os: macos-latest
+          - os: macos-15
             platform: mac
             arch: arm64
             needs_chmcmd: true
@@ -28,7 +28,7 @@ jobs:
               release/**/*.dmg
               release/**/*.zip
           # macOS x64（Intel）；在 Apple Silicon runner 上交叉编译 native + 应用
-          - os: macos-latest
+          - os: macos-15-intel
             platform: mac
             arch: x64
             needs_chmcmd: true
