@@ -1,4 +1,6 @@
-# Created for initial submission to microsoft/winget-pkgs
+# Created with komac v2.16.0
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.12.0.schema.json
+
 PackageIdentifier: TageCode.CHMAssistant
 PackageVersion: 0.1.0
 PackageLocale: en-US
@@ -8,20 +10,20 @@ PublisherSupportUrl: https://github.com/tagecode/chm-assistant/issues
 Author: TageCode
 PackageName: CHM Assistant
 PackageUrl: https://github.com/tagecode/chm-assistant
+License: MIT
+LicenseUrl: https://github.com/tagecode/chm-assistant/blob/main/LICENSE
+Copyright: Copyright (c) TageCode
+CopyrightUrl: https://github.com/tagecode/chm-assistant/blob/main/LICENSE
 ShortDescription: Cross-platform CHM reader and Markdown authoring tool
 Description: |
   CHM Assistant (CHM 助手) is a desktop app for reading CHM files and authoring help projects from Markdown, with one-click CHM compilation and built-in preview.
 Moniker: chm-assistant
 Tags:
 - chm
-- markdown
+- documentation
 - electron
 - help
-- documentation
-License: MIT
-LicenseUrl: https://github.com/tagecode/chm-assistant/blob/main/LICENSE
-Copyright: Copyright (c) TageCode
-CopyrightUrl: https://github.com/tagecode/chm-assistant/blob/main/LICENSE
+- markdown
 ReleaseNotesUrl: https://github.com/tagecode/chm-assistant/releases/tag/v0.1.0
 ManifestType: defaultLocale
-ManifestVersion: 1.6.0
+ManifestVersion: 1.12.0

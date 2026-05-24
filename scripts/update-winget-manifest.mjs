@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url'
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
 const pkgDir = path.join(root, 'packaging', 'winget', 'manifests', 't', 'TageCode', 'CHMAssistant')
+const MANIFEST_VERSION = '1.12.0'
 
 function parseArgs(argv) {
   const out = { version: '', tag: '', url: '', sha256: '' }
@@ -31,6 +32,7 @@ const versionDir = path.join(pkgDir, version)
 const versionPath = path.join(versionDir, 'TageCode.CHMAssistant.yaml')
 let versionYaml = fs.readFileSync(versionPath, 'utf8')
 versionYaml = versionYaml.replace(/^PackageVersion: .+$/m, `PackageVersion: ${version}`)
+versionYaml = versionYaml.replace(/^ManifestVersion: .+$/m, `ManifestVersion: ${MANIFEST_VERSION}`)
 fs.writeFileSync(versionPath, versionYaml)
 
 const installerPath = path.join(versionDir, 'TageCode.CHMAssistant.installer.yaml')
@@ -38,6 +40,7 @@ let installerYaml = fs.readFileSync(installerPath, 'utf8')
 installerYaml = installerYaml.replace(/^PackageVersion: .+$/m, `PackageVersion: ${version}`)
 installerYaml = installerYaml.replace(/^  InstallerUrl: .+$/m, `  InstallerUrl: ${url}`)
 installerYaml = installerYaml.replace(/^  InstallerSha256: .+$/m, `  InstallerSha256: ${sha256}`)
+installerYaml = installerYaml.replace(/^ManifestVersion: .+$/m, `ManifestVersion: ${MANIFEST_VERSION}`)
 fs.writeFileSync(installerPath, installerYaml)
 
 const localePath = path.join(versionDir, 'TageCode.CHMAssistant.locale.en-US.yaml')
@@ -47,6 +50,7 @@ localeYaml = localeYaml.replace(
   /^ReleaseNotesUrl: .+$/m,
   `ReleaseNotesUrl: https://github.com/tagecode/chm-assistant/releases/tag/${tag}`,
 )
+localeYaml = localeYaml.replace(/^ManifestVersion: .+$/m, `ManifestVersion: ${MANIFEST_VERSION}`)
 fs.writeFileSync(localePath, localeYaml)
 
 console.log(`[update-winget-manifest] OK ${version}`)
