@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { ChevronLeft, ChevronRight, Copy, Minus, Plus, Search, X } from 'lucide-react'
 
-import { useAppDialog } from '@/components/app-dialog-provider'
+import { useAppDialog } from '@/components/app-dialog'
 import { Button } from '@/components/ui/button'
 import { ChmLoadingPanel } from '@/components/chm-loading-panel'
 import { Input } from '@/components/ui/input'
@@ -273,6 +273,8 @@ export function ReaderView({
   const { t } = useI18n()
   const dialog = useAppDialog()
   const iframeRef = useRef<HTMLIFrameElement>(null)
+  const tabRef = useRef(tab)
+  tabRef.current = tab
   const initial = defaultReaderUi(tab)
   const [side, setSide] = useState<ReaderSidePanel>(initial.sidePanel)
   const [currentPath, setCurrentPath] = useState(initial.currentPath)
@@ -310,7 +312,7 @@ export function ReaderView({
   }, [currentPath, currentFragment, side, zoomPercent, widthMode, pushState])
 
   useEffect(() => {
-    const ui = defaultReaderUi(tab)
+    const ui = defaultReaderUi(tabRef.current)
     setCurrentPath(ui.currentPath)
     setCurrentFragment(ui.currentFragment ?? '')
     setSide(ui.sidePanel)
@@ -419,7 +421,8 @@ export function ReaderView({
   }, [findOpen])
 
   useEffect(() => {
-    return () => clearFindInChmIframe(iframeRef.current)
+    const iframe = iframeRef.current
+    return () => clearFindInChmIframe(iframe)
   }, [frameSrc])
 
   const runFullSearch = useCallback(async () => {

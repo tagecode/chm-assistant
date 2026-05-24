@@ -15,7 +15,7 @@ import {
 } from '@/components/composer/composer-editor'
 import { MarkdownPreviewPane } from '@/components/composer/markdown-preview-pane'
 import { ProjectTree } from '@/components/composer/project-tree'
-import { useAppDialog } from '@/components/app-dialog-provider'
+import { useAppDialog } from '@/components/app-dialog'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,

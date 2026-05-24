@@ -30,7 +30,7 @@
     "dist:prepare": "pnpm run native:rebuild",
     "dist": "pnpm run dist:prepare && pnpm run compilers:stage && pnpm run build && electron-builder",
     "dist:mac": "pnpm run dist:prepare && pnpm run compilers:stage && pnpm run build && electron-builder --mac",
-    "dist:win": "pnpm run dist:prepare && pnpm run build && electron-builder --win",
+    "dist:win": "pnpm run dist:prepare && pnpm run compilers:stage && pnpm run build && electron-builder --win",
     "dist:linux": "pnpm run dist:prepare && pnpm run compilers:stage && pnpm run build && electron-builder --linux",
     "dist:ci": "node scripts/ci-package.mjs",
     "test:chm-nav-encoding": "node scripts/tests/chm-nav-encoding.mjs",

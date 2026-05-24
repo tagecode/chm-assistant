@@ -1,6 +1,6 @@
 import type { CompilerStatus } from '@/shared/electron'
 import type { MessageKey } from '@/i18n/zh-Hans'
-import type { AppDialogApi } from '@/components/app-dialog-provider'
+import type { AppDialogApi } from '@/components/app-dialog'
 
 const STATUS_KEYS: Record<CompilerStatus['messageKey'], MessageKey> = {
   'ok.bundled': 'settings.compiler.status.okBundled',

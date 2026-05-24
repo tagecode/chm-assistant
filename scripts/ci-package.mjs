@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * CI / 指定架构打包：dist:prepare → compilers:stage（Unix）→ build → electron-builder --{platform} --{arch}
+ * CI / 指定架构打包：dist:prepare → compilers:stage → build → electron-builder --{platform} --{arch}
  *
  * 环境变量：
  *   CI_PLATFORM  mac | win | linux
@@ -55,11 +55,7 @@ for (const rel of iconFiles) {
 }
 
 run('pnpm run dist:prepare')
-
-if (platform !== 'win') {
-  run('pnpm run compilers:stage')
-}
-
+run('pnpm run compilers:stage')
 run('pnpm run build')
 run(`pnpm exec electron-builder --${platform} --${arch}`)
 

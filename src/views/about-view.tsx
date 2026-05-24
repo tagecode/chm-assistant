@@ -1,7 +1,7 @@
 import { Github, Mail, User } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { useAppDialog } from '@/components/app-dialog-provider'
+import { useAppDialog } from '@/components/app-dialog'
 import { useI18n } from '@/i18n/i18n-context'
 import { formatAppVersion } from '@/lib/app-version'
 import type { AppMetadata } from '@/shared/electron'

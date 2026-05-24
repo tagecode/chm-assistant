@@ -1,41 +1,23 @@
 import {
-  createContext,
   useCallback,
-  useContext,
   useMemo,
   useRef,
   useState,
   type ReactNode,
 } from 'react'
 
+import {
+  AppDialogContext,
+  type AlertDialogOptions,
+  type ConfirmDialogOptions,
+} from '@/components/app-dialog'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { MessageAlertDialog } from '@/components/message-alert-dialog'
 import type { MessageKey } from '@/i18n/zh-Hans'
 
-export interface AlertDialogOptions {
-  titleKey: MessageKey
-  descriptionKey?: MessageKey
-  detail?: string
-}
-
-export interface ConfirmDialogOptions extends AlertDialogOptions {
-  descriptionKey: MessageKey
-  confirmLabelKey: MessageKey
-  cancelLabelKey?: MessageKey
-  destructive?: boolean
-}
-
 type PendingDialog =
   | { kind: 'alert'; options: AlertDialogOptions; resolve: () => void }
   | { kind: 'confirm'; options: ConfirmDialogOptions; resolve: (value: boolean) => void }
-
-export interface AppDialogApi {
-  showAlert: (options: AlertDialogOptions) => Promise<void>
-  showConfirm: (options: ConfirmDialogOptions) => Promise<boolean>
-  showError: (detail: string, titleKey?: MessageKey) => Promise<void>
-}
-
-const AppDialogContext = createContext<AppDialogApi | null>(null)
 
 export function AppDialogProvider({ children }: { children: ReactNode }) {
   const [pending, setPending] = useState<PendingDialog | null>(null)
@@ -113,12 +95,4 @@ export function AppDialogProvider({ children }: { children: ReactNode }) {
       ) : null}
     </AppDialogContext.Provider>
   )
-}
-
-export function useAppDialog(): AppDialogApi {
-  const ctx = useContext(AppDialogContext)
-  if (!ctx) {
-    throw new Error('useAppDialog must be used within AppDialogProvider')
-  }
-  return ctx
 }
