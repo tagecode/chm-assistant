@@ -4,35 +4,36 @@
 
 安装：`winget install TageCode.CHMAssistant`
 
-## 首次上架（一次性）
+## 首次上架
 
-[WinGet Releaser](https://github.com/vedantmgoyal9/winget-releaser) 要求 **winget-pkgs 中已存在至少一个版本**。首次需手动提交：
+CI 会检测 `winget-pkgs` 中是否已有该包：
 
-1. Fork [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs)（与 `tagecode` 组织/账号同名）。
-2. 将本目录下 `manifests/t/TageCode/CHMAssistant/` 复制到你的 fork 对应路径。
-3. 若新版本 SHA256 / URL 有变，先运行：
+| 状态 | CI 行为 |
+|------|---------|
+| **尚无**（当前） | 使用 **`komac new`** 自动向你的 `winget-pkgs` fork 开首个 PR |
+| **已有** | 使用 **`winget-releaser`** 自动开后续版本 PR |
+
+前提：
+
+1. 仓库 Secret **`WINGET_TOKEN`**（Classic PAT，`public_repo` scope）
+2. 已 fork [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs)（与 `tagecode` 账号同名）
+
+若首次 PR 尚未合并就重复运行 workflow，Komac 可能提示已有进行中的 PR，等待合并即可。
+
+### 本地手动提交（可选）
+
+本目录 `manifests/t/TageCode/CHMAssistant/` 为参考模板。也可本地运行：
 
 ```bash
 node scripts/resolve-win-release-asset.mjs --tag v0.1.0
-```
-
-并更新 `0.1.0/TageCode.CHMAssistant.installer.yaml` 中的 `InstallerUrl` / `InstallerSha256`。
-
-4. 向 `microsoft/winget-pkgs` 提 PR（或使用 Komac）：
-
-```bash
 winget install komac
 komac token add --token YOUR_CLASSIC_PAT
-komac submit --path packaging/winget/manifests/t/TageCode/CHMAssistant --submit
+komac new TageCode.CHMAssistant --version 0.1.0 --urls "INSTALLER_URL" --submit
 ```
-
-Classic PAT 需 **`public_repo`** scope。
 
 ## 后续版本（自动化）
 
-配置仓库 Secret **`WINGET_TOKEN`**（同上 Classic PAT）并 fork `winget-pkgs` 后，Release 发布时会由 CI 自动开 PR 更新 manifest。
-
-Workflow：[`.github/workflows/publish-windows-packages.yml`](../../.github/workflows/publish-windows-packages.yml)
+Release 发布或手动触发 [`.github/workflows/publish-windows-packages.yml`](../../.github/workflows/publish-windows-packages.yml) 后，WinGet job 会自动开 PR。
 
 ## 安装包选择规则
 
