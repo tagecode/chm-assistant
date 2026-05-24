@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 
 import type { CompileLogLine } from '../src/shared/project'
-import type { ElectronApi } from '../src/shared/electron'
+import type { AppMenuAction, ElectronApi } from '../src/shared/electron'
 
 const electronApi: ElectronApi = {
   getAppMetadata: () => ipcRenderer.invoke('app:get-metadata'),
@@ -38,11 +38,11 @@ const electronApi: ElectronApi = {
     ipcRenderer.invoke('chm:search', sessionId, query),
   getWorkspaceSession: () => ipcRenderer.invoke('workspace:get'),
   setWorkspaceSession: (session) => ipcRenderer.invoke('workspace:set', session),
-  onMenuOpenChm: (handler) => {
-    const listener = () => handler()
-    ipcRenderer.on('menu:open-chm', listener)
+  onMenuAction: (handler) => {
+    const listener = (_e: unknown, action: AppMenuAction) => handler(action)
+    ipcRenderer.on('menu:action', listener)
     return () => {
-      ipcRenderer.removeListener('menu:open-chm', listener)
+      ipcRenderer.removeListener('menu:action', listener)
     }
   },
   loadProject: (rootPath) => ipcRenderer.invoke('project:load', rootPath),

@@ -126,6 +126,14 @@ export interface WorkspaceSession {
   tabs: PersistedWorkspaceTab[]
 }
 
+export type AppMenuAction =
+  | 'new-project'
+  | 'open-chm'
+  | 'open-project'
+  | 'go-home'
+  | 'settings'
+  | 'about'
+
 export interface ElectronApi {
   getAppMetadata: () => Promise<AppMetadata>
   getPathsForFileList: (files: File[]) => Promise<string[]>
@@ -157,7 +165,7 @@ export interface ElectronApi {
   ) => Promise<ChmSearchHit[]>
   getWorkspaceSession: () => Promise<WorkspaceSession | null>
   setWorkspaceSession: (session: WorkspaceSession | null) => Promise<void>
-  onMenuOpenChm: (handler: () => void) => () => void
+  onMenuAction: (handler: (action: AppMenuAction) => void) => () => void
   loadProject: (rootPath: string) => Promise<ProjectLoadResult | ProjectLoadError>
   saveProjectConfig: (
     rootPath: string,

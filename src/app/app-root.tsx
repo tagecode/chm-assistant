@@ -96,6 +96,7 @@ function AppInner() {
   const [readerEncoding, setReaderEncoding] = useState('auto')
   const [chmCompilerPath, setChmCompilerPath] = useState('')
   const [recentMaxCount, setRecentMaxCount] = useState(RECENT_MAX_COUNT_DEFAULT)
+  const [homePendingAction, setHomePendingAction] = useState<'new-project' | null>(null)
   const [bootstrapped, setBootstrapped] = useState(false)
   const [closeTabPrompt, setCloseTabPrompt] = useState<{ tabId: string } | null>(null)
   const [chmOpening, setChmOpening] = useState<{
@@ -186,19 +187,6 @@ function AppInner() {
     mq.addEventListener('change', onChange)
     return () => mq.removeEventListener('change', onChange)
   }, [theme])
-
-  useEffect(() => {
-    const api = window.electronAPI
-    if (!api) return
-    return api.onMenuOpenChm(() => {
-      void (async () => {
-        const picked = await api.openChmDialog()
-        if (picked) {
-          document.dispatchEvent(new CustomEvent('chm-assistant:open-chm-path', { detail: picked }))
-        }
-      })()
-    })
-  }, [])
 
   const refreshRecent = useCallback(async () => {
     const api = window.electronAPI
@@ -299,6 +287,53 @@ function AppInner() {
     },
     [dialog, metadata.platform, openReaderTab, refreshRecent, t],
   )
+
+  useEffect(() => {
+    const api = window.electronAPI
+    if (!api) return
+    return api.onMenuAction((action) => {
+      void (async () => {
+        switch (action) {
+          case 'new-project':
+            setOverlay(null)
+            setScreen('home')
+            setHomePendingAction('new-project')
+            break
+          case 'open-chm': {
+            const picked = await api.openChmDialog()
+            if (picked) {
+              await openChmFromPath(picked)
+            }
+            break
+          }
+          case 'open-project': {
+            const dir = await api.openProjectDialog()
+            if (!dir) return
+            await api.addRecent({ type: 'project', path: dir })
+            await refreshRecent()
+            const title = dir.split(/[/\\]/).pop() ?? 'Project'
+            openProjectTab({
+              id: crypto.randomUUID(),
+              kind: 'project',
+              title,
+              path: dir,
+            })
+            break
+          }
+          case 'go-home':
+            setOverlay(null)
+            setScreen('home')
+            break
+          case 'settings':
+            setOverlay('settings')
+            break
+          case 'about':
+            setOverlay('about')
+            break
+        }
+      })()
+    })
+  }, [openChmFromPath, openProjectTab, refreshRecent])
 
   const handleReaderInitialPageReady = useCallback((tabId: string) => {
     if (chmOpeningWaitRef.current !== tabId) return
@@ -561,6 +596,8 @@ function AppInner() {
             onOpenProjectTab={openProjectTab}
             onClearRecent={handleClearRecent}
             onRefreshRecent={refreshRecent}
+            pendingMenuAction={homePendingAction}
+            onPendingMenuActionHandled={() => setHomePendingAction(null)}
           />
         ) : activeTab?.kind === 'reader' ? (
           <ReaderView
@@ -583,6 +620,8 @@ function AppInner() {
             onOpenProjectTab={openProjectTab}
             onClearRecent={handleClearRecent}
             onRefreshRecent={refreshRecent}
+            pendingMenuAction={homePendingAction}
+            onPendingMenuActionHandled={() => setHomePendingAction(null)}
           />
         )}
       </main>

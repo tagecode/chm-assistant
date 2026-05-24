@@ -28,6 +28,8 @@ interface HomeViewProps {
   onOpenProjectTab: (tab: WorkspaceTab) => void
   onClearRecent: () => void
   onRefreshRecent: () => void
+  pendingMenuAction?: 'new-project' | null
+  onPendingMenuActionHandled?: () => void
 }
 
 export function HomeView({
@@ -36,21 +38,14 @@ export function HomeView({
   onOpenProjectTab,
   onClearRecent,
   onRefreshRecent,
+  pendingMenuAction,
+  onPendingMenuActionHandled,
 }: HomeViewProps) {
   const { t } = useI18n()
   const [projectOpen, setProjectOpen] = useState(false)
   const [pickedDir, setPickedDir] = useState<string | null>(null)
   const [projectTitle, setProjectTitle] = useState('')
   const [createError, setCreateError] = useState<string | null>(null)
-
-  useEffect(() => {
-    const onMenuOpen = (e: Event) => {
-      const path = (e as CustomEvent<string>).detail
-      if (path) void onOpenChmByPath(path)
-    }
-    document.addEventListener('chm-assistant:open-chm-path', onMenuOpen)
-    return () => document.removeEventListener('chm-assistant:open-chm-path', onMenuOpen)
-  }, [onOpenChmByPath])
 
   const handleOpenChm = useCallback(async () => {
     const api = window.electronAPI
@@ -84,6 +79,12 @@ export function HomeView({
     setCreateError(null)
     setProjectOpen(true)
   }, [])
+
+  useEffect(() => {
+    if (pendingMenuAction !== 'new-project') return
+    onPendingMenuActionHandled?.()
+    void startNewProject()
+  }, [onPendingMenuActionHandled, pendingMenuAction, startNewProject])
 
   const confirmCreateProject = useCallback(async () => {
     const api = window.electronAPI

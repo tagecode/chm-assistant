@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, protocol, shell } from 'electron'
 import Store from 'electron-store'
 
 import { registerChmProtocol } from './chm-protocol'
@@ -14,6 +14,12 @@ import {
 } from './chm-reader-service'
 import { searchChmSessionAsync } from './chm-search'
 import { getCompilerStatus } from './compiler-resolve'
+import {
+  getDialogLabels,
+  rebuildApplicationMenu,
+  sendAppMenuAction,
+  type AppMenuAction,
+} from './app-menu'
 import { resolveProjectChmOutputPath } from './chm-build/compile-project'
 import { createProjectInDirectory } from './project-bootstrap'
 import {
@@ -100,66 +106,12 @@ function pushRecent(entry: Omit<RecentEntry, 'openedAt'>): RecentEntry[] {
   return settingsStore.get('recent')
 }
 
-function sendMenuOpenChm() {
-  mainWindow?.webContents.send('menu:open-chm')
+function sendMenuAction(action: AppMenuAction) {
+  sendAppMenuAction(() => mainWindow, action)
 }
 
-function buildApplicationMenu() {
-  const isMac = process.platform === 'darwin'
-  const template: Electron.MenuItemConstructorOptions[] = [
-    ...(isMac
-      ? [
-          {
-            label: app.name,
-            submenu: [
-              { role: 'about' as const },
-              { type: 'separator' as const },
-              { role: 'hide' as const },
-              { role: 'hideOthers' as const },
-              { role: 'unhide' as const },
-              { type: 'separator' as const },
-              { role: 'quit' as const },
-            ],
-          },
-        ]
-      : []),
-    {
-      label: '文件',
-      submenu: [
-        {
-          label: '打开 CHM…',
-          accelerator: 'CmdOrCtrl+O',
-          click: () => sendMenuOpenChm(),
-        },
-        { type: 'separator' },
-        isMac ? { role: 'close' as const } : { role: 'quit' as const },
-      ],
-    },
-    {
-      label: '编辑',
-      submenu: [
-        { role: 'undo' as const },
-        { role: 'redo' as const },
-        { type: 'separator' as const },
-        { role: 'cut' as const },
-        { role: 'copy' as const },
-        { role: 'paste' as const },
-        { role: 'selectAll' as const },
-      ],
-    },
-    {
-      label: '视图',
-      submenu: [
-        { role: 'reload' as const },
-        { role: 'toggleDevTools' as const },
-        { type: 'separator' as const },
-        { role: 'resetZoom' as const },
-        { role: 'zoomIn' as const },
-        { role: 'zoomOut' as const },
-      ],
-    },
-  ]
-  Menu.setApplicationMenu(Menu.buildFromTemplate(template))
+function refreshApplicationMenu() {
+  rebuildApplicationMenu(settingsStore.get('locale'), sendMenuAction)
 }
 
 function createMainWindow() {
@@ -170,7 +122,7 @@ function createMainWindow() {
     minHeight: 720,
     title: 'CHM Assistant',
     icon: resolveWindowIcon(),
-    autoHideMenuBar: false,
+    autoHideMenuBar: process.platform !== 'darwin' && app.isPackaged,
     backgroundColor: '#2a1f18',
     webPreferences: {
       preload: path.join(__dirname, 'preload.mjs'),
@@ -217,6 +169,7 @@ function registerIpcHandlers() {
 
   ipcMain.handle('settings:set-locale', (_event, locale: LocaleMode) => {
     settingsStore.set('locale', locale)
+    refreshApplicationMenu()
     return locale
   })
 
@@ -292,7 +245,7 @@ function registerIpcHandlers() {
       return null
     }
     const { canceled, filePaths } = await dialog.showOpenDialog(win, {
-      title: '打开 CHM',
+      title: getDialogLabels(settingsStore.get('locale')).openChm,
       properties: ['openFile'],
       filters: [{ name: 'CHM', extensions: ['chm'] }],
     })
@@ -309,7 +262,7 @@ function registerIpcHandlers() {
       return null
     }
     const { canceled, filePaths } = await dialog.showOpenDialog(win, {
-      title: '打开创作项目目录',
+      title: getDialogLabels(settingsStore.get('locale')).openProject,
       properties: ['openDirectory', 'createDirectory'],
     })
     if (canceled || filePaths.length === 0) {
@@ -580,7 +533,7 @@ function registerIpcHandlers() {
 app.whenReady().then(() => {
   registerChmProtocol(() => settingsStore.get('readerEncoding'))
   registerIpcHandlers()
-  buildApplicationMenu()
+  refreshApplicationMenu()
   createMainWindow()
 
   app.on('activate', () => {
