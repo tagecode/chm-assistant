@@ -159,7 +159,7 @@ export const zhHans = {
     '未找到 chmcmd。请执行 pnpm run compilers:stage 构建内置编译器，或安装 Free Pascal 的 chmcmd 并加入 PATH。',
   'settings.compiler.status.missingCustom': '指定的编译器路径无效或不可执行',
   'about.title': '关于 CHM 助手',
-  'about.subtitle': '跨平台 CHM 阅读与创作',
+  'about.subtitle': '一款跨平台 CHM 文件的阅读与创作助手',
   'about.version': '版本',
   'about.body':
     '基于 Electron、React 与 CHMLib（LGPL-2.1）等开源组件。详细许可参见 NOTICES。',
