@@ -1,12 +1,12 @@
 # CHM Assistant
 
-> A cross-platform desktop app for reading CHM files, authoring from Markdown, and one-click CHM compilation
+> A cross-platform desktop application for reading CHM files, creating Markdown documents, and compiling them into CHM files with a single click.
 
-[![CI](https://github.com/tagecode/chm-assistant/actions/workflows/ci.yml/badge.svg)](https://github.com/tagecode/chm-assistant/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Release](https://img.shields.io/github/v/release/tagecode/chm-assistant?label=release)](https://github.com/tagecode/chm-assistant/releases)
-[![Electron](https://img.shields.io/badge/Electron-41-47848F?logo=electron&logoColor=white)](https://www.electronjs.org/)
-[![pnpm](https://img.shields.io/badge/pnpm-9-F69220?logo=pnpm&logoColor=white)](https://pnpm.io/)
+[CI](https://github.com/tagecode/chm-assistant/actions/workflows/ci.yml)
+[License: MIT](LICENSE)
+[Release](https://github.com/tagecode/chm-assistant/releases)
+[Electron](https://www.electronjs.org/)
+[pnpm](https://pnpm.io/)
 
 [中文](README.md) · [Install](#install) · [Features](#features) · [Development](#development) · [Docs](#docs) · [Contributing](#contributing) · [License](#license)
 
@@ -35,11 +35,13 @@ CHM parsing is based on [CHMLib](https://github.com/jedwing/CHMLib) (LGPL-2.1), 
 
 ## Platform support
 
-| Platform | Architectures | Formats |
-|----------|---------------|---------|
-| macOS | arm64, x64 | `.dmg`, `.zip` |
-| Windows | x64 | NSIS installer (`.exe`) |
-| Linux | x64, arm64 | AppImage, `.deb` |
+
+| Platform | Architectures | Formats                 |
+| -------- | ------------- | ----------------------- |
+| macOS    | arm64, x64    | `.dmg`, `.zip`          |
+| Windows  | x64           | NSIS installer (`.exe`) |
+| Linux    | x64, arm64    | AppImage, `.deb`        |
+
 
 ---
 
@@ -69,11 +71,13 @@ Compiler details: [docs/compiler-setup.md](docs/compiler-setup.md)
 
 ### Requirements
 
-| Dependency | Version / notes |
-|------------|-----------------|
-| Node.js | **24** (matches CI) |
-| pnpm | **9** |
+
+| Dependency         | Version / notes                                                                                        |
+| ------------------ | ------------------------------------------------------------------------------------------------------ |
+| Node.js            | **24** (matches CI)                                                                                    |
+| pnpm               | **9**                                                                                                  |
 | Native build tools | macOS: Xcode CLT · Windows: VS Build Tools (C++) · Linux: see `scripts/ci-install-linux-build-deps.sh` |
+
 
 ### Run locally
 
@@ -87,14 +91,16 @@ pnpm run dev
 
 ### Common commands
 
-| Command | Description |
-|---------|-------------|
-| `pnpm run build` | Typecheck + build renderer / main |
-| `pnpm run lint` | ESLint |
-| `pnpm run test:mvp` | Build + static checks + Electron native smoke test |
-| `pnpm run dist:mac` | Package macOS installer |
-| `pnpm run dist:win` | Package Windows installer |
-| `pnpm run dist:linux` | Package Linux installer |
+
+| Command               | Description                                        |
+| --------------------- | -------------------------------------------------- |
+| `pnpm run build`      | Typecheck + build renderer / main                  |
+| `pnpm run lint`       | ESLint                                             |
+| `pnpm run test:mvp`   | Build + static checks + Electron native smoke test |
+| `pnpm run dist:mac`   | Package macOS installer                            |
+| `pnpm run dist:win`   | Package Windows installer                          |
+| `pnpm run dist:linux` | Package Linux installer                            |
+
 
 Packaging runs `compilers:stage` to bundle `chmcmd`. CI and release flow: [docs/ci.md](docs/ci.md).
 
@@ -104,15 +110,17 @@ Release: bump `version` in `package.json`, push a matching tag (e.g. `v0.1.0`) t
 
 ## Docs
 
-| Document | Description |
-|----------|-------------|
-| [docs/prd.md](docs/prd.md) | Product requirements (PRD) |
-| [docs/feature.md](docs/feature.md) | Feature roadmap |
-| [docs/mvp.md](docs/mvp.md) | MVP task list |
-| [docs/compiler-setup.md](docs/compiler-setup.md) | CHM compiler setup & licensing |
-| [docs/ci.md](docs/ci.md) | GitHub Actions packaging & release |
-| [docs/mvp-acceptance-checklist.md](docs/mvp-acceptance-checklist.md) | MVP acceptance checklist |
-| [public/NOTICES.md](public/NOTICES.md) | Third-party licenses |
+
+| Document                                                             | Description                        |
+| -------------------------------------------------------------------- | ---------------------------------- |
+| [docs/prd.md](docs/prd.md)                                           | Product requirements (PRD)         |
+| [docs/feature.md](docs/feature.md)                                   | Feature roadmap                    |
+| [docs/mvp.md](docs/mvp.md)                                           | MVP task list                      |
+| [docs/compiler-setup.md](docs/compiler-setup.md)                     | CHM compiler setup & licensing     |
+| [docs/ci.md](docs/ci.md)                                             | GitHub Actions packaging & release |
+| [docs/mvp-acceptance-checklist.md](docs/mvp-acceptance-checklist.md) | MVP acceptance checklist           |
+| [public/NOTICES.md](public/NOTICES.md)                               | Third-party licenses               |
+
 
 ---
 
@@ -130,10 +138,12 @@ For larger changes, please open an Issue first to align scope.
 
 ## License
 
-| Component | License |
-|-----------|---------|
-| Application code in this repo | [MIT](LICENSE) · Copyright © 2026 TageCode |
-| [CHMLib](https://github.com/jedwing/CHMLib) | LGPL-2.1 |
-| Bundled `chmcmd` in installers | GPL-2 |
+
+| Component                                   | License                                    |
+| ------------------------------------------- | ------------------------------------------ |
+| Application code in this repo               | [MIT](LICENSE) · Copyright © 2026 TageCode |
+| [CHMLib](https://github.com/jedwing/CHMLib) | LGPL-2.1                                   |
+| Bundled `chmcmd` in installers              | GPL-2                                      |
+
 
 Full third-party notices: [public/NOTICES.md](public/NOTICES.md).
