@@ -1,63 +1,81 @@
 # CHM Assistant
 
+> 一款跨平台 CHM 阅读、使用 Markdown 创作与一键编译 CHM 的桌面应用
+
 [![CI](https://github.com/tagecode/chm-assistant/actions/workflows/ci.yml/badge.svg)](https://github.com/tagecode/chm-assistant/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/tagecode/chm-assistant?label=release)](https://github.com/tagecode/chm-assistant/releases)
 [![Electron](https://img.shields.io/badge/Electron-41-47848F?logo=electron&logoColor=white)](https://www.electronjs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-9-F69220?logo=pnpm&logoColor=white)](https://pnpm.io/)
 
-一款跨平台桌面应用：打开与阅读 CHM、用 Markdown 管理创作项目、一键编译并在内置阅读器中预览成品。
-
-[English summary](#english) · [功能](#功能) · [下载](#下载) · [从源码构建](#从源码构建) · [文档](#文档) · [参与贡献](#参与贡献) · [许可](#许可)
+[English](#english) · [安装](#安装) · [功能](#功能) · [开发](#开发) · [文档](#文档) · [贡献](#贡献) · [许可](#许可)
 
 ---
 
-## 预览
+## 简介
 
-![CHM Assistant 主界面](docs/images/chm-assistant-01-home.png)
+**CHM Assistant** 将 CHM 阅读与 Markdown 创作整合在同一款桌面应用中：打开 `.chm` 文件阅读，用 Markdown 维护帮助项目，一键编译并在内置阅读器中预览成品。
+
+**v0.1.0** 为首个公开发布版本，覆盖 MVP 核心能力：CHM 阅读、Markdown 创作、跨平台编译与内置预览。更多规划功能见 [docs/feature.md](docs/feature.md)。
 
 ---
 
 ## 功能
 
-| 模块 | 能力 |
-|------|------|
-| **阅读器** | 目录 / 索引、前进后退、全文搜索、中文编码（GBK / UTF-8 等）、多主题 |
-| **创作器** | Monaco 编辑、项目树、资源导入、Markdown 实时预览、编译日志行号跳转 |
-| **编译 CHM** | 生成 `.hhp` / `.hhc` / `.hhk` 并调用平台编译器产出 `.chm` |
+- **CHM 阅读** — 目录 / 索引导航、前进后退、全文搜索、页内查找、GBK / UTF-8 编码、多主题
+- **Markdown 创作** — Monaco 编辑器、项目树、资源管理、实时预览、编译日志行号跳转
+- **一键编译** — 生成 `.hhp` / `.hhc` / `.hhk`，调用平台编译器产出 `.chm`，编译完成后在内置阅读器中打开
+- **跨平台** — macOS、Windows、Linux 统一体验；安装包内置 `chmcmd`，一般无需额外配置编译器
 
 技术栈：[Electron](https://www.electronjs.org/) · [React](https://react.dev/) · [TypeScript](https://www.typescriptlang.org/) · [Vite](https://vite.dev/) · [Tailwind CSS](https://tailwindcss.com/) · [shadcn/ui](https://ui.shadcn.com/)
 
-CHM 解析基于 [CHMLib](https://github.com/jedwing/CHMLib)（LGPL-2.1），通过 Node 原生模块封装。
+CHM 解析基于 [CHMLib](https://github.com/jedwing/CHMLib)（LGPL-2.1），通过 Node 原生模块（N-API）封装。
 
 ---
 
-## 下载
+## 平台支持
 
-在 [GitHub Releases](https://github.com/tagecode/chm-assistant/releases) 获取各平台安装包（由 CI 在推送 `v*` 标签时自动构建）：
-
-| 平台 | 格式 |
-|------|------|
-| macOS (Intel / Apple Silicon) | `.dmg`、`.zip` |
-| Windows (x64) | NSIS 安装包 |
-| Linux (x64 / arm64) | AppImage、`.deb` |
-
-> **编译 CHM 的额外依赖**见下文 [CHM 编译器](#chm-编译器)。仅阅读 CHM 无需安装编译器。
+| 平台 | 架构 | 安装包格式 |
+|------|------|------------|
+| macOS | arm64、x64 | `.dmg`、`.zip` |
+| Windows | x64 | NSIS 安装包 (`.exe`) |
+| Linux | x64、arm64 | AppImage、`.deb` |
 
 ---
 
-## 从源码构建
+## 安装
+
+从 [GitHub Releases](https://github.com/tagecode/chm-assistant/releases) 下载对应平台的安装包。
+
+产物命名：`CHM Assistant-v{version}-{os}-{arch}.{ext}`（例如 `CHM Assistant-v0.1.0-win-x64.exe`）。
+
+### 快速上手
+
+1. 安装并启动 CHM Assistant
+2. **阅读 CHM** — 首页选择「打开 CHM 文件」，或直接拖拽 `.chm` 到窗口
+3. **创作与编译** — 新建或打开创作项目，编写 Markdown 后点击编译；成品会在内置阅读器中打开
+
+> **说明**
+>
+> - 仅阅读 CHM **不需要**安装任何编译器
+> - 创作模块编译 CHM 时，官方安装包已内置 `chmcmd`；Windows 用户也可在设置中指定 `hhc.exe`（HTML Help Workshop）
+> - macOS 未签名构建首次打开时，可能需要在系统设置中允许运行
+
+编译器详情：[docs/compiler-setup.md](docs/compiler-setup.md)
+
+---
+
+## 开发
 
 ### 环境要求
 
-- [Node.js](https://nodejs.org/) **24**（与 CI 一致）
-- [pnpm](https://pnpm.io/) **9**
-- 平台原生构建工具（用于编译 `chm_addon` Node 模块）：
-  - **macOS**：Xcode Command Line Tools
-  - **Windows**：Visual Studio Build Tools（C++ 工作负载）
-  - **Linux**：`build-essential` 等（参见 `scripts/ci-install-linux-build-deps.sh`）
+| 依赖 | 版本 / 说明 |
+|------|-------------|
+| Node.js | **24**（与 CI 一致） |
+| pnpm | **9** |
+| 原生构建工具 | macOS：Xcode CLT · Windows：VS Build Tools（C++） · Linux：见 `scripts/ci-install-linux-build-deps.sh` |
 
-### 开发
+### 本地运行
 
 ```bash
 git clone https://github.com/tagecode/chm-assistant.git
@@ -67,40 +85,20 @@ pnpm run native:rebuild   # 首次克隆或 native 代码变更后
 pnpm run dev
 ```
 
-常用命令：
+### 常用命令
 
-```bash
-pnpm run build          # 类型检查 + 前端 / 主进程构建
-pnpm run lint
-pnpm run test:mvp       # 构建 + 静态检查 + Electron 原生冒烟
-```
+| 命令 | 说明 |
+|------|------|
+| `pnpm run build` | 类型检查 + 前端 / 主进程构建 |
+| `pnpm run lint` | ESLint |
+| `pnpm run test:mvp` | 构建 + 静态检查 + Electron 原生冒烟 |
+| `pnpm run dist:mac` | 打包 macOS 安装包 |
+| `pnpm run dist:win` | 打包 Windows 安装包 |
+| `pnpm run dist:linux` | 打包 Linux 安装包 |
 
-人工 UI 验收步骤见 [docs/mvp-acceptance-checklist.md](docs/mvp-acceptance-checklist.md)。GBK 样例 CHM 可放在 `test/fixtures/gbk/sample.chm`，或设置环境变量 `CHM_ASSISTANT_GBK_SAMPLE`。
+打包前会自动执行 `compilers:stage` 将 `chmcmd` 打入安装包。CI 与发版流程见 [docs/ci.md](docs/ci.md)。
 
-### 本地打包
-
-```bash
-pnpm run dist:mac      # macOS
-pnpm run dist:win      # Windows（含 compilers:stage 内置 chmcmd）
-pnpm run dist:linux    # Linux（含 compilers:stage）
-```
-
-各平台打包前会执行 `pnpm run compilers:stage` 以内置 **chmcmd**。跨平台 CI 与发版流程见 [docs/ci.md](docs/ci.md)。
-
-发版前请更新 `package.json` 中的 `version` 并推送同名标签（例如 `v0.1.0`）。
-
----
-
-## CHM 编译器
-
-创作模块「编译 CHM」需要外部编译器；**阅读 CHM 不需要**。
-
-| 平台 | 编译器 | 安装包是否内置 |
-|------|--------|----------------|
-| **Windows** | **chmcmd**（Free Pascal，GPL-2）；可选回退 **hhc.exe** | 是（`pnpm run compilers:stage` 后打入发布包） |
-| **macOS / Linux** | **chmcmd** | 同上 |
-
-完整说明（许可、路径解析、维护者流程）：[docs/compiler-setup.md](docs/compiler-setup.md)
+发版：更新 `package.json` 中的 `version`，推送同名标签（如 `v0.1.0`）触发 Release 构建。
 
 ---
 
@@ -109,33 +107,36 @@ pnpm run dist:linux    # Linux（含 compilers:stage）
 | 文档 | 说明 |
 |------|------|
 | [docs/prd.md](docs/prd.md) | 产品需求（PRD） |
+| [docs/feature.md](docs/feature.md) | 功能规划 |
 | [docs/mvp.md](docs/mvp.md) | MVP 任务清单 |
+| [docs/compiler-setup.md](docs/compiler-setup.md) | CHM 编译器安装与许可 |
 | [docs/ci.md](docs/ci.md) | GitHub Actions 打包与发版 |
-| [docs/compiler-setup.md](docs/compiler-setup.md) | 编译器安装与打包 |
-| [docs/mvp-acceptance-checklist.md](docs/mvp-acceptance-checklist.md) | MVP 人工验收清单 |
-| [public/NOTICES.md](public/NOTICES.md) | 第三方组件许可（应用内「关于」亦会展示） |
+| [docs/mvp-acceptance-checklist.md](docs/mvp-acceptance-checklist.md) | MVP 验收清单 |
+| [public/NOTICES.md](public/NOTICES.md) | 第三方组件许可 |
 
 ---
 
-## 参与贡献
+## 贡献
 
 欢迎通过 [Issue](https://github.com/tagecode/chm-assistant/issues) 反馈问题或讨论功能，通过 Pull Request 提交改进。
 
-建议流程：
-
-1. Fork 本仓库并从 `main` 创建分支
+1. Fork 本仓库，从 `main` 创建分支
 2. 本地运行 `pnpm run lint` 与 `pnpm run test:mvp`
-3. 提交 PR 并简要说明变更与测试情况
+3. 提交 PR 并说明变更内容与测试情况
 
-较大改动请先开 Issue 对齐范围，避免重复劳动。
+较大改动请先开 Issue 对齐范围。
 
 ---
 
 ## 许可
 
-- 本仓库应用代码：[MIT License](LICENSE) · Copyright © 2026 TageCode
-- [CHMLib](https://github.com/jedwing/CHMLib)：**LGPL-2.1**
-- 若安装包内含 **chmcmd**：**GPL-2**（详见 [public/NOTICES.md](public/NOTICES.md)）
+| 组件 | 许可 |
+|------|------|
+| 本仓库应用代码 | [MIT](LICENSE) · Copyright © 2026 TageCode |
+| [CHMLib](https://github.com/jedwing/CHMLib) | LGPL-2.1 |
+| 安装包内置 `chmcmd` | GPL-2 |
+
+完整第三方许可说明见 [public/NOTICES.md](public/NOTICES.md)。
 
 ---
 
@@ -143,12 +144,11 @@ pnpm run dist:linux    # Linux（含 compilers:stage）
 
 **CHM Assistant** is a cross-platform desktop app for reading CHM files, authoring help projects from Markdown, and compiling preview builds in a built-in reader.
 
-- **Stack**: Electron, React, TypeScript, Vite, Tailwind CSS, shadcn/ui; CHM parsing via CHMLib (LGPL-2.1).
-- **Install**: [Releases](https://github.com/tagecode/chm-assistant/releases) · **Build**: `pnpm install && pnpm run native:rebuild && pnpm run dev`
-- **License**: MIT for application code; see [NOTICES](public/NOTICES.md) for bundled third-party licenses.
+**v0.1.0** is the first public release with MVP scope: CHM reading, Markdown authoring, cross-platform compilation, and built-in preview.
 
----
-
-<p align="center">
-  <sub>如有问题或建议，欢迎 <a href="https://github.com/tagecode/chm-assistant/issues">提交 Issue</a>。</sub>
-</p>
+| Topic | Details |
+|-------|---------|
+| **Install** | [GitHub Releases](https://github.com/tagecode/chm-assistant/releases) |
+| **Platforms** | macOS (arm64 / x64), Windows (x64), Linux (x64 / arm64) |
+| **Build from source** | `pnpm install && pnpm run native:rebuild && pnpm run dev` |
+| **License** | MIT for application code; see [NOTICES](public/NOTICES.md) for bundled components |
