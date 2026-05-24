@@ -1,4 +1,4 @@
-# CHM 助手 · CHM Assistant
+# CHM 助手
 
 > 一款跨平台 CHM 阅读、使用 Markdown 创作与一键编译 CHM 的桌面应用
 
@@ -8,13 +8,13 @@
 [![Electron](https://img.shields.io/badge/Electron-41-47848F?logo=electron&logoColor=white)](https://www.electronjs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-9-F69220?logo=pnpm&logoColor=white)](https://pnpm.io/)
 
-[English](#english) · [安装](#安装) · [功能](#功能) · [开发](#开发) · [文档](#文档) · [贡献](#贡献) · [许可](#许可)
+[English](README.en.md) · [安装](#安装) · [功能](#功能) · [开发](#开发) · [文档](#文档) · [贡献](#贡献) · [许可](#许可)
 
 ---
 
 ## 简介
 
-**CHM 助手**（**CHM Assistant**）将 CHM 阅读与 Markdown 创作整合在同一款桌面应用中：打开 `.chm` 文件阅读，用 Markdown 维护帮助项目，一键编译并在内置阅读器中预览成品。
+**CHM 助手**将 CHM 阅读与 Markdown 创作整合在同一款桌面应用中：打开 `.chm` 文件阅读，用 Markdown 维护帮助项目，一键编译并在内置阅读器中预览成品。
 
 **v0.1.0** 为首个公开发布版本，覆盖 MVP 核心能力：CHM 阅读、Markdown 创作、跨平台编译与内置预览。更多规划功能见 [docs/feature.md](docs/feature.md)。
 
@@ -137,18 +137,3 @@ pnpm run dev
 | 安装包内置 `chmcmd` | GPL-2 |
 
 完整第三方许可说明见 [public/NOTICES.md](public/NOTICES.md)。
-
----
-
-## English
-
-**CHM Assistant** (中文名：**CHM 助手**) is a cross-platform desktop app for reading CHM files, authoring help projects from Markdown, and compiling preview builds in a built-in reader.
-
-**v0.1.0** is the first public release with MVP scope: CHM reading, Markdown authoring, cross-platform compilation, and built-in preview.
-
-| Topic | Details |
-|-------|---------|
-| **Install** | [GitHub Releases](https://github.com/tagecode/chm-assistant/releases) |
-| **Platforms** | macOS (arm64 / x64), Windows (x64), Linux (x64 / arm64) |
-| **Build from source** | `pnpm install && pnpm run native:rebuild && pnpm run dev` |
-| **License** | MIT for application code; see [NOTICES](public/NOTICES.md) for bundled components |
