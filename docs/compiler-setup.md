@@ -42,7 +42,7 @@ CHM Assistant 创作模块在「编译 CHM」时需要调用**外部编译器**�
 **macOS（Homebrew 示例）**
 
 ```bash
-brew install free-pascal
+brew install fpc
 which chmcmd
 ```
 

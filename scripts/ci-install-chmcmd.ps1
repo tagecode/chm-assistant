@@ -41,9 +41,20 @@ function Find-Chmcmd {
   return $null
 }
 
+function Add-ChmcmdToGithubPath($chmcmdPath) {
+  if (-not $env:GITHUB_PATH) {
+    return
+  }
+
+  $binDir = Split-Path -Parent $chmcmdPath
+  Add-Content -Path $env:GITHUB_PATH -Value $binDir
+  Write-Host "[ci] added chmcmd directory to GITHUB_PATH: $binDir"
+}
+
 $existing = Find-Chmcmd
 if ($existing) {
   Write-Host "[ci] chmcmd already available: $existing"
+  Add-ChmcmdToGithubPath $existing
   exit 0
 }
 
@@ -60,3 +71,4 @@ if (-not $installed) {
 }
 
 Write-Host "[ci] chmcmd: $installed"
+Add-ChmcmdToGithubPath $installed

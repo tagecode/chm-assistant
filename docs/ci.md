@@ -69,7 +69,7 @@ Tag 校验：`node scripts/check-release-version.mjs`
 | 平台 | 脚本 | 内容 |
 |------|------|------|
 | Linux | `scripts/ci-install-linux-build-deps.sh` | `build-essential`、`python3`、`libfuse2` |
-| Linux / macOS | `scripts/ci-install-chmcmd.sh` | Free Pascal → `chmcmd` |
+| Linux / macOS | `scripts/ci-install-chmcmd.sh` | Free Pascal (`fpc`) → `chmcmd` |
 | Windows | `scripts/ci-install-chmcmd.ps1` | Chocolatey `freepascal` → `chmcmd.exe` |
 
 ## 产物

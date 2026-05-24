@@ -34,10 +34,10 @@ case "$(uname -s)" in
     fi
     if [ "$HOST_ARCH" = arm64 ] && [ "$TARGET_ARCH" = x64 ]; then
       echo "[ci] Installing x64 Free Pascal (Rosetta) for macOS x64 package..."
-      arch -x86_64 brew install free-pascal
+      arch -x86_64 brew install fpc
       CHM="$(arch -x86_64 command -v chmcmd || true)"
     else
-      brew install free-pascal
+      brew install fpc
       CHM="$(command -v chmcmd || true)"
     fi
     if [ -z "${CHM:-}" ]; then
