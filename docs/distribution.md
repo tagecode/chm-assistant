@@ -18,11 +18,52 @@ Release 工作流（[`.github/workflows/release.yml`](../.github/workflows/relea
 | 版本校验 | `node scripts/check-release-version.mjs` |
 | 许可文档 | 应用 MIT；内置 GPL-2 `chmcmd` 说明见 [`public/NOTICES.md`](../public/NOTICES.md) |
 
-**尚未具备**：Chocolatey / Snap / Winget 等**包描述文件**、**商店账号与密钥**、**发版后自动推送的 workflow**。
+**Phase 1（Windows）已落地**：Chocolatey + WinGet 包描述、解析脚本与 [`.github/workflows/publish-windows-packages.yml`](../.github/workflows/publish-windows-packages.yml)。
+
+**尚未具备**：Snap 等 Linux 商店分发。
 
 ---
 
-## 总体架构建议
+## Phase 1：Chocolatey + WinGet（已实现）
+
+| 项 | 路径 / 说明 |
+|----|-------------|
+| Workflow | [`.github/workflows/publish-windows-packages.yml`](../.github/workflows/publish-windows-packages.yml) |
+| 触发 | GitHub Release 状态变为 **released**；或手动 `workflow_dispatch` 填写 tag |
+| Chocolatey 包 | [`packaging/chocolatey/`](../packaging/chocolatey/)（ID：`chm-assistant`） |
+| WinGet manifest | [`packaging/winget/`](../packaging/winget/)（ID：`TageCode.CHMAssistant`） |
+| 解析脚本 | [`scripts/resolve-win-release-asset.mjs`](../scripts/resolve-win-release-asset.mjs) |
+| 更新 nuspec | [`scripts/update-chocolatey-package.mjs`](../scripts/update-chocolatey-package.mjs) |
+
+### 发版后流程
+
+1. `release.yml` 创建 GitHub Release（与现有一致）。
+2. Release **published** 后，`publish-windows-packages.yml` 自动运行：
+   - 从 Release 资产中选取 `*-win-x64.exe`（排除 `elevate.exe` 等）。
+   - **Chocolatey**：更新 nuspec → `choco pack` → `choco push`。
+   - **WinGet**：[`winget-releaser`](https://github.com/vedantmgoyal9/winget-releaser) 向 `winget-pkgs` 开 PR。
+
+### 仓库 Secrets（必配）
+
+| Secret | 平台 | 说明 |
+|--------|------|------|
+| `CHOCO_API_KEY` | Chocolatey | 你已获取；在 Settings → Secrets → Actions 中添加 |
+| `WINGET_TOKEN` | WinGet | **Classic** PAT，`public_repo` scope；需 fork [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs) |
+
+### WinGet 首次上架（一次性）
+
+自动化 PR **要求 winget-pkgs 中已有至少一个版本**。v0.1.0 请按 [`packaging/winget/README.md`](../packaging/winget/README.md) 手动提首个 PR；合并后后续版本由 CI 自动更新。
+
+### 安装命令（上架后）
+
+```powershell
+choco install chm-assistant
+winget install TageCode.CHMAssistant
+```
+
+---
+
+## 总体架构
 
 不建议把所有商店逻辑塞进现有 `release.yml`（某个商店失败可能拖慢 GitHub Release）。推荐：
 
@@ -178,22 +219,22 @@ env:
 | `GITHUB_TOKEN` | GitHub Release | 已有（workflow 默认） |
 | `CHOCO_API_KEY` | Chocolatey | 是（推送时） |
 | `SNAPCRAFT_STORE_CREDENTIALS` | Snap | 是（上传时） |
-| — | Winget | 否（PR 制） |
+| `WINGET_TOKEN` | WinGet | 是（Classic PAT，`public_repo`） |
 | `CSC_LINK`、`APPLE_ID` 等 | 代码签名 | 非必须；企业/商店环境更友好 |
 
 代码签名现状见 [ci.md](./ci.md#代码签名可选)：`CSC_IDENTITY_AUTO_DISCOVERY=false`，当前为未签名构建。
 
 ---
 
-## 仓库内建议新增内容
+## 仓库内文件（Windows 已完成）
 
-| 类别 | 内容 |
+| 类别 | 路径 |
 |------|------|
-| 包描述 | `packaging/chocolatey/*`、`packaging/snap/*` 或根目录 `snapcraft.yaml` |
-| 工作流 | `.github/workflows/publish-chocolatey.yml`、`.github/workflows/publish-snap.yml` 等 |
-| 脚本 | 从 Release API 取 URL、计算 SHA256、更新 nuspec 版本 |
-| 文档 | 本文档；各平台安装命令、审核状态、渠道说明 |
-| README | 可选：`choco install chm-assistant`、`snap install chm-assistant` 徽章与链接 |
+| Chocolatey | [`packaging/chocolatey/`](../packaging/chocolatey/) |
+| WinGet | [`packaging/winget/`](../packaging/winget/) |
+| Workflow | [`.github/workflows/publish-windows-packages.yml`](../.github/workflows/publish-windows-packages.yml) |
+| 脚本 | `scripts/resolve-win-release-asset.mjs`、`scripts/update-chocolatey-package.mjs` |
+| Snap（待做） | `packaging/snap/*` 或 `snapcraft.yaml` |
 
 ---
 
@@ -214,7 +255,7 @@ Tag 与版本一致性的要求见 [ci.md](./ci.md#发版流程)。
 
 | 阶段 | 目标 | 工作量 |
 |------|------|--------|
-| **Phase 1** | Winget + Chocolatey（Windows，复用现有 NSIS `.exe`） | 小～中 |
+| **Phase 1** | Winget + Chocolatey（Windows，复用现有 NSIS `.exe`） | **已完成** |
 | **Phase 2** | Snap amd64（扩展 Linux 构建或独立 job） | 中 |
 | **Phase 3** | Snap arm64、Homebrew Cask、Flathub | 中～大 |
 

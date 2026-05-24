@@ -6,6 +6,7 @@
 |------|------|------|
 | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | `push` / `pull_request` → `main` | `lint` + `test:mvp` |
 | [`.github/workflows/release.yml`](../.github/workflows/release.yml) | `v*` tag、`workflow_dispatch` | 多架构打包并上传 Release |
+| [`.github/workflows/publish-windows-packages.yml`](../.github/workflows/publish-windows-packages.yml) | Release `released`、`workflow_dispatch` | Chocolatey + WinGet（见 [distribution.md](./distribution.md)） |
 
 ## Release 构建矩阵
 

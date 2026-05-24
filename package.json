@@ -36,6 +36,7 @@
     "test:chm-nav-encoding": "node scripts/tests/chm-nav-encoding.mjs",
     "test:chm-hhp-paths": "node scripts/tests/chm-hhp-paths.mjs",
     "test:ci-chmcmd-path": "node scripts/tests/ci-install-chmcmd-path.mjs",
+    "test:resolve-win-release-asset": "node scripts/tests/resolve-win-release-asset.mjs",
     "test:mvp": "node scripts/mvp-acceptance/run.mjs",
     "test:mvp:static": "node scripts/mvp-acceptance/run.mjs -- --static-only --no-build"
   },

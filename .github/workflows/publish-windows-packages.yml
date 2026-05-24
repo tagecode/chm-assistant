@@ -1,0 +1,91 @@
+name: Publish Windows Packages
+
+on:
+  release:
+    types: [released]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v0.1.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    name: Resolve Windows installer
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.asset.outputs.tag }}
+      version: ${{ steps.asset.outputs.version }}
+      name: ${{ steps.asset.outputs.name }}
+      url: ${{ steps.asset.outputs.url }}
+      sha256: ${{ steps.asset.outputs.sha256 }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Resolve release asset
+        id: asset
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.event.release.tag_name || inputs.tag }}"
+          node scripts/resolve-win-release-asset.mjs --tag "$TAG"
+
+  chocolatey:
+    name: Publish to Chocolatey
+    needs: resolve
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Update Chocolatey package metadata
+        run: >
+          node scripts/update-chocolatey-package.mjs
+          --version "${{ needs.resolve.outputs.version }}"
+          --url "${{ needs.resolve.outputs.url }}"
+          --sha256 "${{ needs.resolve.outputs.sha256 }}"
+
+      - name: Pack and push to Chocolatey
+        shell: pwsh
+        env:
+          CHOCO_API_KEY: ${{ secrets.CHOCO_API_KEY }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:CHOCO_API_KEY)) {
+            throw "Missing repository secret CHOCO_API_KEY"
+          }
+          $version = "${{ needs.resolve.outputs.version }}"
+          choco pack packaging/chocolatey/chm-assistant.nuspec --out="packaging/chocolatey"
+          $nupkg = "packaging/chocolatey/chm-assistant.$version.nupkg"
+          if (-not (Test-Path $nupkg)) {
+            throw "Expected nupkg not found: $nupkg"
+          }
+          choco push $nupkg --source https://push.chocolatey.org/ --key $env:CHOCO_API_KEY
+
+  winget:
+    name: Publish to WinGet (PR)
+    needs: resolve
+    runs-on: ubuntu-latest
+    steps:
+      - name: Submit WinGet manifest PR
+        uses: vedantmgoyal9/winget-releaser@main
+        with:
+          identifier: TageCode.CHMAssistant
+          token: ${{ secrets.WINGET_TOKEN }}
+          release-tag: ${{ needs.resolve.outputs.tag }}
+          installers-regex: '-win-x64\.exe$'
+          max-versions-to-keep: 5

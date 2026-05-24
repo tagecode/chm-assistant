@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>chm-assistant</id>
+    <version>0.1.0</version>
+    <title>CHM Assistant (CHM 助手)</title>
+    <authors>TageCode</authors>
+    <owners>TageCode</owners>
+    <projectUrl>https://github.com/tagecode/chm-assistant</projectUrl>
+    <licenseUrl>https://github.com/tagecode/chm-assistant/blob/main/LICENSE</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <docsUrl>https://github.com/tagecode/chm-assistant#readme</docsUrl>
+    <bugTrackerUrl>https://github.com/tagecode/chm-assistant/issues</bugTrackerUrl>
+    <tags>chm markdown electron gui productivity admin</tags>
+    <summary>Cross-platform CHM reader and Markdown authoring tool.</summary>
+    <description>
+CHM Assistant (CHM 助手) is a desktop app for reading CHM files and authoring help projects from Markdown, with one-click CHM compilation and built-in preview.
+
+Official installers bundle the chmcmd compiler (GPL-2). See NOTICES:
+https://github.com/tagecode/chm-assistant/blob/main/public/NOTICES.md
+    </description>
+    <releaseNotes>https://github.com/tagecode/chm-assistant/releases</releaseNotes>
+  </metadata>
+</package>

@@ -1,0 +1,19 @@
+# Created for initial submission to microsoft/winget-pkgs
+# PackageIdentifier: TageCode.CHMAssistant
+PackageVersion: 0.1.0
+Installers:
+- Architecture: x64
+  InstallerType: nullsoft
+  InstallerUrl: https://github.com/tagecode/chm-assistant/releases/download/v0.1.0/CHM-Assistant-v0.1.0-win-x64.exe
+  InstallerSha256: 9D751EFD0420FE049D2FAD21B67A74EE6EACBC7C7E09AB25C6F4B065A67AAC99
+  Scope: user
+  InstallerSwitches:
+    Silent: /S
+    SilentWithProgress: /S
+  UpgradeBehavior: install
+  InstallModes:
+  - interactive
+  - silent
+  - silentWithProgress
+ManifestType: installer
+ManifestVersion: 1.6.0
