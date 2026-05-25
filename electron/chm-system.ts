@@ -1,3 +1,5 @@
+import { decodeChmSystemString } from './chm-text'
+
 /** 解析 /#SYSTEM（ITT 内部 #SYSTEM 流）中的常用字符串项。参见 chmspec #SYSTEM。 */
 export interface ChmSystemStrings {
   contentsFile?: string
@@ -6,32 +8,34 @@ export interface ChmSystemStrings {
   title?: string
 }
 
-function readNtString(data: Buffer): string {
+function readNtString(data: Buffer, readerEncodingPref: string): string {
   if (data.length === 0) {
     return ''
   }
-  let end = data.indexOf(0)
-  if (end < 0) {
-    end = data.length
-  }
-  const slice = data.subarray(0, end)
-  if (slice.length >= 4 && slice[1] === 0 && slice[3] === 0 && slice[0] !== 0) {
+  if (data.length >= 4 && data[1] === 0 && data[3] === 0 && data[0] !== 0) {
     let end16 = 0
-    for (let i = 0; i + 1 < slice.length; i += 2) {
-      if (slice[i] === 0 && slice[i + 1] === 0) {
+    for (let i = 0; i + 1 < data.length; i += 2) {
+      if (data[i] === 0 && data[i + 1] === 0) {
         end16 = i
         break
       }
     }
     if (end16 === 0) {
-      end16 = slice.length - (slice.length % 2)
+      end16 = data.length - (data.length % 2)
     }
-    return slice.subarray(0, end16).toString('utf16le')
+    return decodeChmSystemString(data.subarray(0, end16), readerEncodingPref)
   }
-  return slice.toString('utf8')
+  let end = data.indexOf(0)
+  if (end < 0) {
+    end = data.length
+  }
+  return decodeChmSystemString(data.subarray(0, end), readerEncodingPref)
 }
 
-export function parseChmSystem(systemBuf: Buffer): ChmSystemStrings {
+export function parseChmSystem(
+  systemBuf: Buffer,
+  readerEncodingPref = 'auto',
+): ChmSystemStrings {
   const out: ChmSystemStrings = {}
   if (systemBuf.length < 8) {
     return out
@@ -46,7 +50,7 @@ export function parseChmSystem(systemBuf: Buffer): ChmSystemStrings {
     }
     const data = systemBuf.subarray(off, off + len)
     off += len
-    const str = readNtString(data).replace(/\\/g, '/')
+    const str = readNtString(data, readerEncodingPref).replace(/\\/g, '/')
     if (!str) {
       continue
     }

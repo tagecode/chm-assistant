@@ -118,7 +118,7 @@ export function openChmSession(rawPath: string, readerEncodingPref = 'auto'): Ch
   if (sysPath) {
     const sysBuf = readObject(sysPath)
     if (sysBuf && sysBuf.length >= 8) {
-      systemMeta = parseChmSystem(sysBuf)
+      systemMeta = parseChmSystem(sysBuf, readerEncodingPref)
     }
   }
 
