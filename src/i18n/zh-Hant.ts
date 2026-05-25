@@ -168,6 +168,17 @@ export const zhHant: Record<MessageKey, string> = {
   'settings.compiler.status.missingUnix':
     '找不到 chmcmd。請執行 pnpm run compilers:stage 建置內建編譯器，或安裝 Free Pascal 的 chmcmd 並加入 PATH。',
   'settings.compiler.status.missingCustom': '指定的編譯器路徑無效或無法執行',
+  'settings.compileTemp': '編譯暫存目錄',
+  'settings.compileTemp.hint':
+    '當專案或輸出路徑含中文等非 ASCII 字元時，應用會在此目錄下建立 ASCII 中轉資料夾進行編譯。留空則自動選擇系統暫存目錄。',
+  'settings.compileTemp.pathLabel': '自訂目錄（留空為自動）',
+  'settings.compileTemp.pathPlaceholder': '例如 C:\\Temp 或 /tmp',
+  'settings.compileTemp.defaultHint': '目前使用系統預設暫存目錄。',
+  'settings.compileTemp.browse': '瀏覽…',
+  'settings.compileTemp.clear': '恢復自動',
+  'settings.compileTemp.errorNonAscii':
+    '路徑不能包含中文等非 ASCII 字元，請使用純英文目錄（例如 C:\\Temp）。',
+  'settings.compileTemp.errorInvalid': '路徑無效，請檢查後重試。',
   'about.title': '關於 CHM 助手',
   'about.subtitle': '跨平台 CHM 閱讀與創作',
   'about.version': '版本',

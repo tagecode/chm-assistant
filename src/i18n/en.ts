@@ -175,6 +175,17 @@ export const en: Record<MessageKey, string> = {
     'chmcmd not found. Run pnpm run compilers:stage for releases, or install Free Pascal chmcmd on PATH.',
   'settings.compiler.status.missingCustom':
     'The specified compiler path is missing or not executable',
+  'settings.compileTemp': 'Compile staging directory',
+  'settings.compileTemp.hint':
+    'When the project or output path contains non-ASCII characters, the app builds under an ASCII-safe folder here, then copies the CHM back. Leave empty to use the system temp directory automatically.',
+  'settings.compileTemp.pathLabel': 'Custom directory (empty = auto)',
+  'settings.compileTemp.pathPlaceholder': 'e.g. C:\\Temp or /tmp',
+  'settings.compileTemp.defaultHint': 'Using the system default temp directory.',
+  'settings.compileTemp.browse': 'Browse…',
+  'settings.compileTemp.clear': 'Use auto',
+  'settings.compileTemp.errorNonAscii':
+    'The path must not contain non-ASCII characters (e.g. Chinese). Use an ASCII-only folder such as C:\\Temp.',
+  'settings.compileTemp.errorInvalid': 'Invalid path. Please check and try again.',
   'about.title': 'About CHM Assistant',
   'about.subtitle': 'Cross-platform CHM reader and authoring',
   'about.version': 'Version',

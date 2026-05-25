@@ -96,6 +96,7 @@ function AppInner() {
   const [theme, setTheme] = useState<ThemeMode>('system')
   const [readerEncoding, setReaderEncoding] = useState('auto')
   const [chmCompilerPath, setChmCompilerPath] = useState('')
+  const [compileTempDir, setCompileTempDir] = useState('')
   const [recentMaxCount, setRecentMaxCount] = useState(RECENT_MAX_COUNT_DEFAULT)
   const [homePendingAction, setHomePendingAction] = useState<'new-project' | null>(null)
   const [bootstrapped, setBootstrapped] = useState(false)
@@ -148,6 +149,7 @@ function AppInner() {
       setTheme(s.theme)
       setReaderEncoding(s.readerEncoding)
       setChmCompilerPath(s.chmCompilerPath ?? '')
+      setCompileTempDir(s.compileTempDir ?? '')
       setRecentMaxCount(s.recentMaxCount)
       setLocaleMode(s.locale)
       applyTheme(s.theme)
@@ -581,6 +583,8 @@ function AppInner() {
             onReaderEncodingChange={setReaderEncoding}
             chmCompilerPath={chmCompilerPath}
             onChmCompilerPathChange={setChmCompilerPath}
+            compileTempDir={compileTempDir}
+            onCompileTempDirChange={setCompileTempDir}
             recentMaxCount={recentMaxCount}
             onRecentMaxCountChange={(count) => {
               setRecentMaxCount(count)

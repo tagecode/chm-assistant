@@ -99,6 +99,7 @@ pnpm run dist:win   # 或 dist:mac / dist:linux
 - **弹窗提示找不到 `项目根目录\toc.hhc`**：旧版构建脚本的路径问题；更新应用后会按编译器拆分路径策略：`chmcmd` 使用 `.chm-build`，`hhc.exe` 使用不以点开头的 `chm-build-hhc`（HTML Help Compiler 对 `.chm-build` 这类点目录兼容性很差）。
 - **32 位**：`hhc` 与 FPC 的 `chmcmd.exe` 多为 32 位，在 64 位 Windows 上通常仍可正常使用。
 - **中文路径 / 文件名**：`chmcmd`（以及部分环境下的 `hhc.exe`）在打开 `.hhp` 所列文件时，对 **非 ASCII 路径**（如 `docs/指南/说明.md`）支持很差，常表现为「无法打开文件」或编译失败。应用会在编译时把 `.chm-build` 内的 HTML 与资源复制为 **ASCII 安全文件名**（按哈希重命名），**项目 `docs/` 下仍可使用中文文件夹与文件名**；侧栏标题与 CHM 内显示名不受影响。
+- **中文项目根或输出路径**（如 `D:\文档\my-help`、`dist/手册.chm`）：编译链会自动在 **ASCII 安全的临时目录** 完成构建，再将 `.chm` **复制回** 项目 `dist/`。可在 **设置 → 编译临时目录** 指定纯英文路径（留空则用系统默认）；亦可用环境变量 `CHM_ASSISTANT_COMPILE_TMP`（设置项优先）。
 - **Windows 自带查看器目录/索引乱码**：HTML Help 1.x 的目录（`.hhc`）与索引（`.hhk`）在 `hh.exe` 中仍按 **传统 ANSI 代码页**（简体中文多为 **936**）解释，而默认编译链产出 **UTF-8** 中间文件（`Charset=65001`，适配 **chmcmd** 与本应用阅读器）。因此在「系统已开启 UTF-8 Beta（ACP 65001）」的现代 Windows 上，**无法靠「检测系统代码页 → 统一改成 GBK」** 同时保证本应用与 `hh.exe` 均正常——强行改 GBK 会导致 chmcmd 与 UTF-8 正文/HTML 不一致，产物损坏。可选方向见下文「编码策略评估」。
 
 ---

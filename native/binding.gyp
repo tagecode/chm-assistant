@@ -48,7 +48,12 @@
           }
         ],
         ["OS=='mac'", { "defines": ["CHM_MT"], "link_settings": { "libraries": ["-pthread"] } }],
-        ["OS=='win'", { "defines": ["CHM_MT", "WIN32"] }]
+        [
+          "OS=='win'",
+          {
+            "defines": ["CHM_MT", "WIN32", "PPC_BSTR", "UNICODE", "_UNICODE"]
+          }
+        ]
       ]
     }
   ]

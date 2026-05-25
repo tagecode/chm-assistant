@@ -12,6 +12,8 @@ export const storeDefaults: PersistedState = {
   readerEncoding: 'auto',
   /** 空字符串表示自动检测（Unix 优先内置 chmcmd） */
   chmCompilerPath: '',
+  /** 编译中转根目录（空为系统默认）；须为纯 ASCII 路径 */
+  compileTempDir: '',
   recentMaxCount: RECENT_MAX_COUNT_DEFAULT,
   recent: [],
   workspace: null,

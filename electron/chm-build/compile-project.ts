@@ -35,6 +35,12 @@ import {
 } from './compiler-output'
 import { getCompilerStatus, resolveChmCompilerForBuild, runChmCompiler } from './compiler'
 import {
+  pathHasNonAsciiSegments,
+  promoteStagedChmOutput,
+  removeCompileStagingRoot,
+  resolveCompileWorkspace,
+} from './compile-paths'
+import {
   buildMdToBuildHtmlMap,
   copyResourcesToBuild,
   gatherAllProjectResources,
@@ -42,8 +48,6 @@ import {
 import { closeChmSessionsForPath } from '../chm-reader-service'
 import { getChmAddon } from '../chm-native'
 
-const CHMCMD_BUILD_DIR_NAME = '.chm-build'
-const HHC_BUILD_DIR_NAME = 'chm-build-hhc'
 const HHC_NAME = 'toc.hhc'
 const HHK_NAME = 'index.hhk'
 const HHP_NAME = 'project.hhp'
@@ -118,10 +122,6 @@ function mdPathToHtmlRel(mdPath: string): string {
   return norm.replace(/\.md$/i, '.html')
 }
 
-function buildDirNameForCompiler(kind: 'hhc' | 'chmcmd'): string {
-  return kind === 'hhc' ? HHC_BUILD_DIR_NAME : CHMCMD_BUILD_DIR_NAME
-}
-
 function findTocTitle(nodes: ProjectTocNode[], mdRel: string): string | null {
   for (const n of nodes) {
     if (n.mdPath?.replace(/\\/g, '/') === mdRel) {
@@ -135,7 +135,9 @@ function findTocTitle(nodes: ProjectTocNode[], mdRel: string): string | null {
   return null
 }
 
-function validateCompiledChmFile(chmPath: string): { ok: true } | { ok: false; message: string } {
+function validateChmItsfHeader(
+  chmPath: string,
+): { ok: true } | { ok: false; message: string } {
   try {
     const fd = fs.openSync(chmPath, 'r')
     try {
@@ -154,6 +156,16 @@ function validateCompiledChmFile(chmPath: string): { ok: true } | { ok: false; m
         '输出 CHM 已生成但当前无法读取，可能仍被 hhc.exe、Windows 帮助查看器或杀毒软件占用。请关闭相关进程后重试。',
     }
   }
+  return { ok: true }
+}
+
+function validateCompiledChmDeep(
+  chmPath: string,
+): { ok: true } | { ok: false; message: string } {
+  const header = validateChmItsfHeader(chmPath)
+  if (!header.ok) {
+    return header
+  }
 
   const addon = getChmAddon()
   if (!addon) {
@@ -161,10 +173,13 @@ function validateCompiledChmFile(chmPath: string): { ok: true } | { ok: false; m
   }
   const opened = addon.openChm(chmPath)
   if (!opened.ok || !opened.sessionId) {
+    const pathHint = pathHasNonAsciiSegments(chmPath)
+      ? '（若路径含中文，请更新到含原生模块修复的版本后重试）'
+      : ''
     return {
       ok: false,
       message:
-        '输出 CHM 已生成，但无法被 CHM 解析库打开。产物可能已损坏，请改用 hhc.exe 重新编译，或关闭 Windows 查看器兼容模式后重试。',
+        `输出 CHM 已生成，但无法被 CHM 解析库打开。产物可能已损坏，请改用 hhc.exe 重新编译，或关闭 Windows 查看器兼容模式后重试。${pathHint}`,
     }
   }
   try {
@@ -186,6 +201,7 @@ export async function compileProject(
   config: ChmProjectConfig,
   customCompilerPath: string | null,
   onProgress?: (line: CompileLogLine) => void,
+  compileTempDir?: string | null,
 ): Promise<CompileProjectResult> {
   const logs: CompileLogLine[] = []
   const emit = (line: CompileLogLine) => {
@@ -256,17 +272,37 @@ export async function compileProject(
     }
   }
 
-  const buildDir = path.join(rootPath, buildDirNameForCompiler(compiler.kind))
-  const logCtx = { rootPath, buildDir }
-  const distDir = path.join(rootPath, 'dist')
+  const finalChmPath = resolveProjectChmOutputPath(rootPath, config)
+  const workspace = resolveCompileWorkspace(rootPath, compiler.kind, finalChmPath, {
+    compileTempDir,
+  })
+  const { projectRoot, buildDir, compilerChmPath, staged, stagingRoot } = workspace
+  const chmPath = workspace.finalChmPath
+  const logCtx = { rootPath: projectRoot, buildDir }
+
+  if (staged) {
+    emit({
+      level: 'info',
+      message:
+        '检测到项目或输出路径含非 ASCII 字符，已使用 ASCII 安全临时目录编译（编译完成后写回项目 dist/）',
+    })
+    removeCompileStagingRoot(stagingRoot)
+    fs.mkdirSync(path.join(stagingRoot!, 'dist'), { recursive: true })
+  } else {
+    fs.mkdirSync(path.join(projectRoot, 'dist'), { recursive: true })
+  }
+
   fs.rmSync(buildDir, { recursive: true, force: true })
   fs.mkdirSync(buildDir, { recursive: true })
-  fs.mkdirSync(distDir, { recursive: true })
 
   let resourcePathMap = new Map<string, string>()
   if (resourcePaths.length > 0) {
     emit({ level: 'info', message: `正在复制 ${resourcePaths.length} 个资源文件…` })
-    const { copied, pathMap } = copyResourcesToBuild(rootPath, buildDir, resourcePaths)
+    const { copied, pathMap } = copyResourcesToBuild(
+      projectRoot,
+      buildDir,
+      resourcePaths,
+    )
     resourcePathMap = pathMap
     for (const rel of copied) {
       emit({ level: 'info', message: `已复制资源 ${rel}` })
@@ -283,7 +319,7 @@ export async function compileProject(
 
   const htmlFiles: string[] = []
   for (const mdRel of mdPaths) {
-    const absMd = resolveMdPath(rootPath, mdRel)
+    const absMd = resolveMdPath(projectRoot, mdRel)
     if (!fs.existsSync(absMd)) {
       emit({
         level: 'error',
@@ -309,7 +345,7 @@ export async function compileProject(
 
     const body = markdownToCompileHtmlBody(
       source,
-      rootPath,
+      projectRoot,
       mdNorm,
       compilePathMap,
     )
@@ -326,7 +362,7 @@ export async function compileProject(
     mdToBuildHtml.get(mdPath.replace(/\\/g, '/')) ??
     mdPathToHtmlRel(mdPath.replace(/\\/g, '/'))
   const compilerPathProfile = resolveChmCompilerPathProfile(
-    rootPath,
+    projectRoot,
     buildDir,
     compiler.kind,
   )
@@ -368,11 +404,10 @@ export async function compileProject(
     encProfile.encoding,
   )
 
-  const chmPath = resolveProjectChmOutputPath(rootPath, config)
   const hhpCharset = resolveHhpCharset(encProfile, compiler.kind)
   const hhp = generateHhp(config, {
     buildDir,
-    compiledFile: chmPath,
+    compiledFile: compilerChmPath,
     contentsFile: path.join(buildDir, HHC_NAME),
     indexFile: path.join(buildDir, HHK_NAME),
     defaultTopicHtml: path.join(buildDir, defaultTopicHtml),
@@ -420,7 +455,7 @@ export async function compileProject(
   }
 
   const compilerReportedFailure = compilerOutputIndicatesFailure(stdout, stderr)
-  const chmCreated = fs.existsSync(chmPath)
+  const chmCreated = fs.existsSync(compilerChmPath)
   const exitCodeIndicatesFailure = code !== 0 && compiler.kind !== 'hhc'
   if (exitCodeIndicatesFailure || !chmCreated || compilerReportedFailure) {
     const hhcDetail = pickCompilerErrorLine(stdout, stderr)
@@ -431,14 +466,40 @@ export async function compileProject(
           ? formatCompileFailureMessage(code, hhcDetail, compiler.kind)
           : `编译失败（退出码 ${code}）。请确认编译器可用（内置 chmcmd、系统 chmcmd 或 hhc.exe）。`
     emit({ level: 'error', message: err })
+    removeCompileStagingRoot(stagingRoot)
     return { ok: false, error: err, logs }
   }
 
-  const validChm = validateCompiledChmFile(chmPath)
-  if (!validChm.ok) {
-    const err = `编译器已生成文件，但产物校验失败：${validChm.message}`
+  const validCompiler = validateCompiledChmDeep(compilerChmPath)
+  if (!validCompiler.ok) {
+    removeCompileStagingRoot(stagingRoot)
+    const err = `编译器已生成文件，但产物校验失败：${validCompiler.message}`
     emit({ level: 'error', message: err })
     return { ok: false, error: err, logs }
+  }
+
+  if (staged) {
+    const promoted = promoteStagedChmOutput(compilerChmPath, chmPath)
+    removeCompileStagingRoot(stagingRoot)
+    if (!promoted.ok) {
+      emit({ level: 'error', message: promoted.message })
+      return { ok: false, error: promoted.message, logs }
+    }
+    emit({ level: 'info', message: `已将编译产物写回：${chmPath}` })
+    const finalHeader = validateChmItsfHeader(chmPath)
+    if (!finalHeader.ok) {
+      const err = `编译产物已写回，但校验失败：${finalHeader.message}`
+      emit({ level: 'error', message: err })
+      return { ok: false, error: err, logs }
+    }
+    if (path.resolve(chmPath) !== path.resolve(compilerChmPath)) {
+      const validFinal = validateCompiledChmDeep(chmPath)
+      if (!validFinal.ok) {
+        const err = `编译产物已写回，但无法在目标路径打开：${validFinal.message}`
+        emit({ level: 'error', message: err })
+        return { ok: false, error: err, logs }
+      }
+    }
   }
 
   emit({ level: 'info', message: `编译成功：${chmPath}` })

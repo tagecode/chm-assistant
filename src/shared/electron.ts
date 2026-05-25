@@ -91,9 +91,15 @@ export interface AppSettings {
   readerEncoding: string
   /** 自定义 CHM 编译器路径；空字符串为自动 */
   chmCompilerPath: string
+  /** 含非 ASCII 项目路径时的编译中转根目录；空为系统默认 */
+  compileTempDir: string
   /** 首页「最近记录」最多保留条数 */
   recentMaxCount: number
 }
+
+export type SetCompileTempDirResult =
+  | { ok: true; path: string }
+  | { ok: false; code: 'non_ascii' | 'invalid' }
 
 export type ReaderSidePanel = 'toc' | 'index' | 'search' | 'bookmarks'
 export type ReaderWidthMode = 'fit' | 'full'
@@ -142,9 +148,11 @@ export interface ElectronApi {
   setLocale: (locale: LocaleMode) => Promise<LocaleMode>
   setReaderEncoding: (encoding: string) => Promise<string>
   setChmCompilerPath: (path: string) => Promise<string>
+  setCompileTempDir: (dir: string) => Promise<SetCompileTempDirResult>
   setRecentMaxCount: (count: number) => Promise<number>
   getCompilerStatus: () => Promise<CompilerStatus>
   pickCompilerDialog: () => Promise<string | null>
+  pickCompileTempDirDialog: () => Promise<string | null>
   openExternalUrl: (url: string) => Promise<void>
   getRecent: () => Promise<RecentEntry[]>
   addRecent: (entry: Omit<RecentEntry, 'openedAt'>) => Promise<RecentEntry[]>

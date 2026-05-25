@@ -14,9 +14,11 @@ const electronApi: ElectronApi = {
     ipcRenderer.invoke('settings:set-reader-encoding', encoding),
   setChmCompilerPath: (compilerPath) =>
     ipcRenderer.invoke('settings:set-chm-compiler-path', compilerPath),
+  setCompileTempDir: (dir) => ipcRenderer.invoke('settings:set-compile-temp-dir', dir),
   setRecentMaxCount: (count) => ipcRenderer.invoke('settings:set-recent-max-count', count),
   getCompilerStatus: () => ipcRenderer.invoke('compiler:get-status'),
   pickCompilerDialog: () => ipcRenderer.invoke('dialog:pick-compiler'),
+  pickCompileTempDirDialog: () => ipcRenderer.invoke('dialog:pick-compile-temp-dir'),
   openExternalUrl: (url) => ipcRenderer.invoke('shell:open-external', url),
   getRecent: () => ipcRenderer.invoke('recent:get'),
   addRecent: (entry) => ipcRenderer.invoke('recent:add', entry),

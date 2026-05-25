@@ -20,6 +20,7 @@ import {
   sendAppMenuAction,
   type AppMenuAction,
 } from './app-menu'
+import { validateCompileTempDir } from './chm-build/compile-paths'
 import { resolveProjectChmOutputPath } from './chm-build/compile-project'
 import { createProjectInDirectory } from './project-bootstrap'
 import {
@@ -159,6 +160,7 @@ function registerIpcHandlers() {
     locale: settingsStore.get('locale'),
     readerEncoding: settingsStore.get('readerEncoding'),
     chmCompilerPath: settingsStore.get('chmCompilerPath') ?? '',
+    compileTempDir: settingsStore.get('compileTempDir') ?? '',
     recentMaxCount: getRecentMaxCount(),
   }))
 
@@ -181,6 +183,15 @@ function registerIpcHandlers() {
   ipcMain.handle('settings:set-chm-compiler-path', (_event, compilerPath: string) => {
     settingsStore.set('chmCompilerPath', compilerPath)
     return compilerPath
+  })
+
+  ipcMain.handle('settings:set-compile-temp-dir', (_event, dir: string) => {
+    const validated = validateCompileTempDir(dir)
+    if (!validated.ok) {
+      return validated
+    }
+    settingsStore.set('compileTempDir', validated.path)
+    return { ok: true as const, path: validated.path }
   })
 
   ipcMain.handle('settings:set-recent-max-count', (_event, count: number) => {
@@ -216,6 +227,35 @@ function registerIpcHandlers() {
       return null
     }
     return filePaths[0] ?? null
+  })
+
+  ipcMain.handle('dialog:pick-compile-temp-dir', async (event) => {
+    const win =
+      BrowserWindow.fromWebContents(event.sender) ?? BrowserWindow.getFocusedWindow()
+    if (!win) {
+      return null
+    }
+    const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+      title: '选择编译临时目录',
+      properties: ['openDirectory', 'createDirectory'],
+    })
+    if (canceled || filePaths.length === 0) {
+      return null
+    }
+    const picked = filePaths[0] ?? ''
+    const validated = validateCompileTempDir(picked)
+    if (!validated.ok) {
+      await dialog.showMessageBox(win, {
+        type: 'warning',
+        title: '无法使用该目录',
+        message:
+          validated.code === 'non_ascii'
+            ? '编译临时目录的路径不能包含中文等非 ASCII 字符，请选择纯英文路径（例如 C:\\Temp）。'
+            : '路径无效，请重新选择。',
+      })
+      return null
+    }
+    return validated.path
   })
 
   ipcMain.handle('recent:get', () => {
@@ -465,11 +505,13 @@ function registerIpcHandlers() {
         sender.send('project:compile-log', line)
       }
       const compilerPath = settingsStore.get('chmCompilerPath') || null
+      const compileTempDir = settingsStore.get('compileTempDir') || null
       return compileProjectWithProgress(
         payload.rootPath,
         payload.config,
         compilerPath,
         onProgress,
+        compileTempDir,
       )
     },
   )

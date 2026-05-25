@@ -143,8 +143,15 @@ export async function compileProjectWithProgress(
   config: ChmProjectConfig,
   customCompilerPath: string | null,
   onProgress: (line: CompileLogLine) => void,
+  compileTempDir?: string | null,
 ): Promise<CompileProjectResult> {
-  return compileProject(rootPath, config, customCompilerPath, onProgress)
+  return compileProject(
+    rootPath,
+    config,
+    customCompilerPath,
+    onProgress,
+    compileTempDir,
+  )
 }
 
 export function buildMarkdownPreviewHtml(

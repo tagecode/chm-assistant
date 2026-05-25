@@ -4,6 +4,7 @@ import { MonitorCog, MoonStar, SunMedium, Trees } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useI18n } from '@/i18n/i18n-context'
+import type { MessageKey } from '@/i18n/zh-Hans'
 import { compilerStatusMessageKey } from '@/lib/compiler-ui'
 import { cn } from '@/lib/utils'
 import {
@@ -22,6 +23,8 @@ interface SettingsViewProps {
   onReaderEncodingChange: (v: string) => void
   chmCompilerPath: string
   onChmCompilerPathChange: (v: string) => void
+  compileTempDir: string
+  onCompileTempDirChange: (v: string) => void
   recentMaxCount: number
   onRecentMaxCountChange: (v: number) => void
   onBack: () => void
@@ -46,12 +49,15 @@ export function SettingsView({
   onReaderEncodingChange,
   chmCompilerPath,
   onChmCompilerPathChange,
+  compileTempDir,
+  onCompileTempDirChange,
   recentMaxCount,
   onRecentMaxCountChange,
   onBack,
 }: SettingsViewProps) {
   const { t } = useI18n()
   const [compilerStatus, setCompilerStatus] = useState<CompilerStatus | null>(null)
+  const [compileTempError, setCompileTempError] = useState<MessageKey | null>(null)
   const [recentMaxDraft, setRecentMaxDraft] = useState(String(recentMaxCount))
 
   const refreshCompilerStatus = useCallback(async () => {
@@ -93,6 +99,22 @@ export function SettingsView({
       (Number.isFinite(parsed) ? parsed : RECENT_MAX_COUNT_DEFAULT)
     onRecentMaxCountChange(persisted)
     setRecentMaxDraft(String(persisted))
+  }
+
+  async function persistCompileTempDir(next: string) {
+    const api = window.electronAPI
+    if (!api) return
+    const result = await api.setCompileTempDir(next)
+    if (!result.ok) {
+      setCompileTempError(
+        result.code === 'non_ascii'
+          ? 'settings.compileTemp.errorNonAscii'
+          : 'settings.compileTemp.errorInvalid',
+      )
+      return
+    }
+    setCompileTempError(null)
+    onCompileTempDirChange(result.path)
   }
 
   return (
@@ -195,7 +217,7 @@ export function SettingsView({
         </p>
       </section>
 
-      <section className="space-y-3">
+      <section className="mb-10 space-y-3">
         <h2 className="text-sm font-medium text-muted-foreground">{t('settings.compiler')}</h2>
         <p className="text-xs text-muted-foreground">{t('settings.compiler.hint')}</p>
         {compilerStatus ? (
@@ -263,6 +285,54 @@ export function SettingsView({
               )}
             </Button>
           ))}
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-medium text-muted-foreground">
+          {t('settings.compileTemp')}
+        </h2>
+        <p className="text-xs text-muted-foreground">{t('settings.compileTemp.hint')}</p>
+        <label className="grid gap-1 text-sm">
+          {t('settings.compileTemp.pathLabel')}
+          <Input
+            value={compileTempDir}
+            onChange={(e) => {
+              setCompileTempError(null)
+              onCompileTempDirChange(e.target.value)
+            }}
+            onBlur={() => void persistCompileTempDir(compileTempDir)}
+            placeholder={t('settings.compileTemp.pathPlaceholder')}
+          />
+        </label>
+        {compileTempError ? (
+          <p className="text-xs text-destructive">{t(compileTempError)}</p>
+        ) : null}
+        {!compileTempDir.trim() ? (
+          <p className="text-xs text-muted-foreground">{t('settings.compileTemp.defaultHint')}</p>
+        ) : null}
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              void (async () => {
+                const picked = await window.electronAPI?.pickCompileTempDirDialog()
+                if (picked) {
+                  await persistCompileTempDir(picked)
+                }
+              })()
+            }}
+          >
+            {t('settings.compileTemp.browse')}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void persistCompileTempDir('')}
+          >
+            {t('settings.compileTemp.clear')}
+          </Button>
         </div>
       </section>
     </div>

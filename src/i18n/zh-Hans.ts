@@ -164,6 +164,17 @@ export const zhHans = {
   'settings.compiler.status.missingUnix':
     '未找到 chmcmd。请执行 pnpm run compilers:stage 构建内置编译器，或安装 Free Pascal 的 chmcmd 并加入 PATH。',
   'settings.compiler.status.missingCustom': '指定的编译器路径无效或不可执行',
+  'settings.compileTemp': '编译临时目录',
+  'settings.compileTemp.hint':
+    '当项目或输出路径含中文等非 ASCII 字符时，应用会在此目录下建立 ASCII 中转文件夹进行编译。留空则自动选择系统临时目录（Windows 通常为 %TEMP% 或 C:\\Windows\\Temp）。',
+  'settings.compileTemp.pathLabel': '自定义目录（留空为自动）',
+  'settings.compileTemp.pathPlaceholder': '例如 C:\\Temp 或 /tmp',
+  'settings.compileTemp.defaultHint': '当前使用系统默认临时目录。',
+  'settings.compileTemp.browse': '浏览…',
+  'settings.compileTemp.clear': '恢复自动',
+  'settings.compileTemp.errorNonAscii':
+    '路径不能包含中文等非 ASCII 字符，请使用纯英文目录（例如 C:\\Temp）。',
+  'settings.compileTemp.errorInvalid': '路径无效，请检查后重试。',
   'about.title': '关于 CHM 助手',
   'about.subtitle': '一款跨平台 CHM 文件的阅读与创作助手',
   'about.version': '版本',

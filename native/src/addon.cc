@@ -9,9 +9,36 @@
 #include <unordered_map>
 #include <vector>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 extern "C" {
 #include "chm_lib.h"
 }
+
+#ifdef PPC_BSTR
+static std::wstring Utf8ToWide(const std::string& utf8) {
+  if (utf8.empty()) {
+    return std::wstring();
+  }
+  int size = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, utf8.c_str(),
+                                 static_cast<int>(utf8.size()), nullptr, 0);
+  if (size <= 0) {
+    size = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, nullptr, 0);
+    if (size <= 0) {
+      return std::wstring();
+    }
+    std::wstring wide(static_cast<size_t>(size - 1), L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, wide.data(), size);
+    return wide;
+  }
+  std::wstring wide(static_cast<size_t>(size), L'\0');
+  MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, utf8.c_str(),
+                      static_cast<int>(utf8.size()), wide.data(), size);
+  return wide;
+}
+#endif
 
 static std::mutex g_mutex;
 static std::unordered_map<std::string, struct chmFile*> g_sessions;
@@ -86,7 +113,15 @@ static Napi::Value OpenChm(const Napi::CallbackInfo& info) {
   }
   std::string fspath = info[0].As<Napi::String>().Utf8Value();
 
-  struct chmFile* h = chm_open(fspath.c_str());
+  struct chmFile* h = nullptr;
+#ifdef PPC_BSTR
+  const std::wstring wpath = Utf8ToWide(fspath);
+  if (!wpath.empty()) {
+    h = chm_open(reinterpret_cast<BSTR>(const_cast<wchar_t*>(wpath.c_str())));
+  }
+#else
+  h = chm_open(fspath.c_str());
+#endif
   Napi::Object res = Napi::Object::New(env);
   if (h == nullptr) {
     res.Set("ok", false);
