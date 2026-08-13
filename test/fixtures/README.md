@@ -17,6 +17,15 @@
 2. 或设置环境变量：  
    `export CHM_ASSISTANT_GBK_SAMPLE=/path/to/your-gbk.chm`
 
+**没有现成样例？** 可用本仓库创作链生成（`docs/compiler-setup.md` 装有 `chmcmd`/`hhc` 时）：
+
+```bash
+# 1) 用应用「新建项目」或手工建一个项目：index.md 保存为 GBK 编码（如 VSCode 右下角选 GBK）
+# 2) 项目元数据勾选「兼容 Windows 帮助查看器」（整包按 GBK 输出，见 compiler-setup.md「编码策略评估」）
+# 3) 编译出的 .chm 即 GBK 样例
+# 4) 复制为 test/fixtures/gbk/sample.chm，重跑 test:mvp
+```
+
 建议样例含：多级 `.hhc` 目录、正文中文、可被「的」或专有名词命中的页面。
 
 可选：
