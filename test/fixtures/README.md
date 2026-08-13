@@ -19,6 +19,8 @@
 pnpm run fixture:gbk   # 需已 build；本机有 chmcmd（ACP 936/950）或 hhc.exe
 ```
 
+样例的页面结构、生成路径与验证方法见 [docs/gbk-fixture.md](../../docs/gbk-fixture.md)。
+
 或使用自有样例：复制为 `test/fixtures/gbk/sample.chm`，或设置环境变量 `CHM_ASSISTANT_GBK_SAMPLE=/path/to/your-gbk.chm`。
 
 建议样例含：多级 `.hhc` 目录、正文中文、可被「的」或专有名词命中的页面。

@@ -141,6 +141,7 @@ Monaco 与 markdown-it (6.1, 6.5) 在 6.6 前完成
 - 若 PRD 升版导致需求 ID 变更，请同步更新本表「对应 PRD」列。  
 - *MVP-S* 条目标记表示 **冲刺项**：不阻塞「MVP 最小发布」但强烈建议在首版前完成。
 - **CHM 编译器**安装、打包与许可：见 [compiler-setup.md](./compiler-setup.md)；用户向说明见仓库 [README.md](../README.md)。
+- **GBK 验收样例**的生成路径与复现：见 [gbk-fixture.md](./gbk-fixture.md)。
 - **完成度**见下文 §11，发版前请同步更新状态列。
 
 ---
@@ -261,7 +262,7 @@ Monaco 与 markdown-it (6.1, 6.5) 在 6.6 前完成
 
 | 序号 | 状态 | 负责人 | 备注 |
 |------|------|--------|------|
-| 7.1 | ✅ | | `test:mvp` 自动通过：GBK 样例打开/目录/正文/全文搜索（fixture `test/fixtures/gbk/sample.chm` 已入库，`pnpm run fixture:gbk` 可重新生成） |
+| 7.1 | ✅ | | `test:mvp` 自动通过：GBK 样例打开/目录/正文/全文搜索（fixture `test/fixtures/gbk/sample.chm` 已入库，`pnpm run fixture:gbk` 可重新生成，见 [gbk-fixture.md](./gbk-fixture.md)） |
 | 7.2 | ✅ | | `test:mvp` 自动通过：UTF-8 无 BOM + 编译 + 产物中文（已装 chmcmd/hhc） |
 | 7.3 | ⚠️ | | 核心 i18n key 三语自动（`static.i18n.core` 通过）；界面路径人工表未签核 |
 | 7.4 | 🟡 | | 损坏样例自动通过；超大样例（人工）缺 `CHM_ASSISTANT_LARGE_SAMPLE` |
