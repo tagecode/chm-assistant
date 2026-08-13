@@ -11,20 +11,15 @@
 
 ## GBK 样例（7.1）
 
-任选其一：
+**已内置** `gbk/sample.chm`（用产品编译链生成的 GBK 工程，含多级 `.hhc` 目录与可搜索中文），`test:mvp` 自动覆盖打开、目录、正文、全文搜索。
 
-1. 将 GBK 样例复制为 `test/fixtures/gbk/sample.chm`
-2. 或设置环境变量：  
-   `export CHM_ASSISTANT_GBK_SAMPLE=/path/to/your-gbk.chm`
-
-**没有现成样例？** 可用本仓库创作链生成（`docs/compiler-setup.md` 装有 `chmcmd`/`hhc` 时）：
+重新生成（例如调整样例内容后）：
 
 ```bash
-# 1) 用应用「新建项目」或手工建一个项目：index.md 保存为 GBK 编码（如 VSCode 右下角选 GBK）
-# 2) 项目元数据勾选「兼容 Windows 帮助查看器」（整包按 GBK 输出，见 compiler-setup.md「编码策略评估」）
-# 3) 编译出的 .chm 即 GBK 样例
-# 4) 复制为 test/fixtures/gbk/sample.chm，重跑 test:mvp
+pnpm run fixture:gbk   # 需已 build；本机有 chmcmd（ACP 936/950）或 hhc.exe
 ```
+
+或使用自有样例：复制为 `test/fixtures/gbk/sample.chm`，或设置环境变量 `CHM_ASSISTANT_GBK_SAMPLE=/path/to/your-gbk.chm`。
 
 建议样例含：多级 `.hhc` 目录、正文中文、可被「的」或专有名词命中的页面。
 

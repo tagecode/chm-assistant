@@ -16,10 +16,10 @@
 **最近一次自动化摘要**（填写 `test:mvp` 输出或报告中的通过/失败/跳过数）：
 
 ```
-通过: 13  失败: 0  跳过: 3  平台: win32-x64
+通过: 18  失败: 0  跳过: 1  平台: win32-x64
 ```
 
-> 3 个跳过均为人工项：GBK 样例（7.1，`test/fixtures/gbk/sample.chm` 未入库）、超大 CHM（7.4.large，未设置 `CHM_ASSISTANT_LARGE_SAMPLE`）。
+> 唯一跳过项为人工项：超大 CHM（7.4.large，未设置 `CHM_ASSISTANT_LARGE_SAMPLE`）。GBK 样例（7.1）已入库 `test/fixtures/gbk/sample.chm`，全部自动用例通过。
 
 ---
 

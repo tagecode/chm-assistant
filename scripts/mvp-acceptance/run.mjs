@@ -28,6 +28,7 @@ const ROOT = path.join(__dirname, '../..')
 const args = new Set(process.argv.slice(2))
 const staticOnly = args.has('--static-only')
 const noBuild = args.has('--no-build')
+const fixtureGbk = args.has('--fixture-gbk')
 
 function runBuild() {
   console.log(`${colors.dim}▶ npm run build${colors.reset}`)
@@ -68,6 +69,9 @@ function runElectronSmoke() {
   console.log(`${colors.dim}▶ ${command} ${args.join(' ')}${colors.reset}`)
   const env = { ...process.env }
   delete env.ELECTRON_RUN_AS_NODE
+  if (fixtureGbk) {
+    env.CHM_ASSISTANT_GENERATE_GBK_FIXTURE = '1'
+  }
   const r = spawnSync(command, args, {
     cwd: ROOT,
     stdio: 'inherit',
@@ -139,6 +143,12 @@ function main() {
     if (!staticOnly) {
       runSmokeBundle()
     }
+  }
+
+  // 仅生成 GBK 样例：不打报告，冒烟进程输出即结果
+  if (fixtureGbk) {
+    const smokeExit = runElectronSmoke()
+    process.exit(smokeExit)
   }
 
   const staticResults = runStaticChecks()

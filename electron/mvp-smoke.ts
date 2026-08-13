@@ -12,6 +12,7 @@ import { getCompilerStatus } from './compiler-resolve'
 import { closeChmSession, openChmSession, readChmPagePlainText } from './chm-reader-service'
 import { searchChmSession } from './chm-search'
 import { compileProject } from './chm-build/compile-project'
+import type { ChmProjectConfig } from '../src/shared/project'
 import { loadProjectConfig, readUtf8NoBom } from './project-fs'
 import { createProjectInDirectory } from './project-bootstrap'
 
@@ -266,6 +267,138 @@ async function checkCompileUtf8() {
   closeChmSession(verify.sessionId)
 }
 
+/** 生成 GBK 验收样例（CHM_ASSISTANT_GENERATE_GBK_FIXTURE=1 时进入，跳过验收）。 */
+async function generateGbkFixture(): Promise<boolean> {
+  if (process.env.CHM_ASSISTANT_GENERATE_GBK_FIXTURE !== '1') {
+    return false
+  }
+  const scratch = path.join(ROOT, 'test-results/_gbk-fixture-scratch')
+  const projectRoot = path.join(scratch, 'project')
+  const docsDir = path.join(projectRoot, 'docs')
+  const now = new Date().toISOString()
+
+  const toc = [
+    {
+      id: 'sec-1',
+      title: '第一章 入门',
+      children: [
+        { id: 'p-index', title: '首页与安装', mdPath: 'docs/index.md' },
+        { id: 'p-quickstart', title: '快速开始', mdPath: 'docs/quickstart.md' },
+      ],
+    },
+    {
+      id: 'sec-2',
+      title: '第二章 使用帮助',
+      children: [
+        { id: 'p-search', title: '搜索与查找', mdPath: 'docs/search.md' },
+        { id: 'p-encoding', title: '编码与中文显示', mdPath: 'docs/encoding.md' },
+      ],
+    },
+    { id: 'p-faq', title: '常见问题', mdPath: 'docs/faq.md' },
+  ]
+
+  const md = {
+    'docs/index.md': `# 首页与安装
+
+欢迎使用 CHM 助手。这是一款跨平台的 CHM 阅读与创作工具。
+
+安装步骤非常简单，下载安装包后双击即可。安装完成后，你可以用本应用打开任意 CHM 文件。
+
+## 帮助的目录
+
+本应用的核心功能包括阅读、搜索与创作。
+`,
+    'docs/quickstart.md': `# 快速开始
+
+打开本应用的帮助文档的步骤如下：
+
+1. 点击「打开 CHM」按钮
+2. 选择需要阅读的文件
+3. 在左侧目录中浏览内容
+
+帮助你快速上手的更多内容请参见后续章节。
+`,
+    'docs/search.md': `# 搜索与查找
+
+全文搜索可以检索帮助文档中的所有页面。输入关键词后按回车即可。
+
+页内查找请按 Ctrl+F 或 Cmd+F，输入内容后会在当前页面中高亮显示。
+
+搜索关键词的编码与正文保持一致，中文关键词在 GBK 页面中同样可以命中。
+`,
+    'docs/encoding.md': `# 编码与中文显示
+
+本应用支持 GBK、GB2312、GB18030 与 UTF-8 编码的 CHM 文件。
+
+打开文件时，应用会自动检测编码，你可以在设置中手动指定。
+
+中文正文与目录标题共用同一套解码逻辑，保证导航与内容都不乱码。
+`,
+    'docs/faq.md': `# 常见问题
+
+问：中文显示为乱码怎么办？
+答：请在设置中切换编码，或选择「自动检测」。
+
+问：搜索不到中文内容？
+答：请确认编码设置正确，重新执行全文搜索即可。
+
+的帮助的帮助 — 本行包含多个「的帮助」以命中默认搜索词「的」。
+`,
+  }
+
+  fs.rmSync(projectRoot, { recursive: true, force: true })
+  fs.mkdirSync(docsDir, { recursive: true })
+  for (const [rel, content] of Object.entries(md)) {
+    fs.writeFileSync(path.join(projectRoot, rel), content, { encoding: 'utf8' })
+  }
+
+  const config: ChmProjectConfig = {
+    version: 1,
+    title: 'GBK 验收样例',
+    language: 'zh-Hans',
+    charset: 'utf-8',
+    defaultPage: 'docs/index.md',
+    docsDir: 'docs',
+    createdAt: now,
+    toc,
+    compile: {
+      outputFile: 'gbk-sample.chm',
+      windowsViewerCompat: true,
+    },
+  }
+  fs.writeFileSync(
+    path.join(projectRoot, 'chm-assistant.chmproj'),
+    `${JSON.stringify(config, null, 2)}\n`,
+    'utf8',
+  )
+
+  const result = await compileProject(projectRoot, config, null, (line) => {
+    if (line.level === 'error' || line.level === 'warn') {
+      console.log(`  [${line.level}] ${line.message}`)
+    } else if (
+      line.message.startsWith('正在') ||
+      line.message.includes('编译成功')
+    ) {
+      console.log(`  · ${line.message}`)
+    }
+  })
+  if (!result.ok) {
+    console.error(`GBK fixture 编译失败: ${result.error}`)
+    app.exit(1)
+    return true
+  }
+
+  const target = path.join(ROOT, 'test/fixtures/gbk/sample.chm')
+  fs.mkdirSync(path.dirname(target), { recursive: true })
+  fs.copyFileSync(result.chmPath, target)
+  console.log(`GBK fixture 已生成: ${target} (${fs.statSync(target).size} bytes)`)
+  if (!process.argv.includes('--keep-scratch')) {
+    fs.rmSync(scratch, { recursive: true, force: true })
+  }
+  app.exit(0)
+  return true
+}
+
 function checkPackagedArtifacts() {
   const releaseDir = path.join(ROOT, 'release')
   if (!fs.existsSync(releaseDir)) {
@@ -301,6 +434,10 @@ async function main() {
     status: 'pass',
     message: `${process.platform}-${process.arch}`,
   })
+
+  if (await generateGbkFixture()) {
+    return
+  }
 
   await checkNativeGbk()
   checkCorruptChm()

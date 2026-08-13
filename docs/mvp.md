@@ -150,7 +150,7 @@ Monaco 与 markdown-it (6.1, 6.5) 在 6.6 前完成
 | 属性 | 内容 |
 |------|------|
 | 最近评估 | 2026-08-13 |
-| 评估依据 | 仓库实现 + `pnpm run test:mvp`（13 通过 / 0 失败 / 3 跳过，跳过均为人工项：GBK 样例、超大样例） |
+| 评估依据 | 仓库实现 + `pnpm run test:mvp`（18 通过 / 0 失败 / 1 跳过，跳过为超大 CHM 人工项） |
 | 范围 | §1～§7（不含 §8 Post-MVP） |
 
 ### 11.1 状态图例
@@ -173,14 +173,14 @@ Monaco 与 markdown-it (6.1, 6.5) 在 6.6 前完成
 | §2 国际化与设置 | 5 | 4 | 1 | 0 | 0 | ~90% |
 | §3 统一入口与工作区 | 5 | 4 | 1 | 0 | 0 | ~90% |
 | §4 CHM 阅读器 | 8 | 8 | 0 | 0 | 0 | ~100% |
-| §5 搜索与会话 | 7 | 3 | 2 | 2 | 0 | P0 100%；含 *MVP-S* ~60% |
+| §5 搜索与会话 | 7 | 4 | 1 | 2 | 0 | P0 100%；含 *MVP-S* ~60% |
 | §6 Markdown 创作 | 12 | 11 | 1 | 0 | 0 | ~97% |
-| §7 测试与验收 | 5 | 1 | 2 | 0 | 2 | 自动化 13/0/3 通过；人工签核待完成 |
-| **合计（§1～§7）** | **50** | **36** | **10** | **2** | **2** | **功能实现约 94%～96%；§7 人工签核未闭环** |
+| §7 测试与验收 | 5 | 2 | 2 | 0 | 1 | 自动化 18/0/1 通过；人工签核待完成 |
+| **合计（§1～§7）** | **50** | **38** | **9** | **2** | **1** | **功能实现约 95%～97%；§7 人工签核未闭环** |
 
 **里程碑粗估**：M1 阅读 ~100% · M2 搜索/会话 P0 ~100%（*MVP-S* 项 5.5/5.6 未做） · M3 创作/编译 ~97%。
 
-**发布建议**：主链路可演示；`test:mvp` 13/0/3 通过。请按 [mvp-acceptance-signoff.md](./mvp-acceptance-signoff.md) 完成 §7 人工签核、补 GBK 样例（见 [test/fixtures/README.md](../test/fixtures/README.md)）后再标「MVP 可发布」。
+**发布建议**：主链路可演示；`test:mvp` 18/0/1 通过（GBK 样例已入库，自动覆盖 7.1）。请按 [mvp-acceptance-signoff.md](./mvp-acceptance-signoff.md) 完成 §7 人工签核后再标「MVP 可发布」。
 
 ### 11.3 §1 工程与架构
 
@@ -238,7 +238,7 @@ Monaco 与 markdown-it (6.1, 6.5) 在 6.6 前完成
 | 5.4 | 🟡 | *MVP-S* | 点击命中 → 进入页 → `pendingFind` → find bridge 高亮（RD-12 大半已实现）；**搜索结果列表项本身无关键词着色** |
 | 5.5 | ❌ | *MVP-S* | 仅目录导航高亮，无正文滚动同步（无 IntersectionObserver/scroll 监听） |
 | 5.6 | ❌ | *MVP-S* | `ChmLoadingPanel` 为动画占位，无真实进度/惰性加载 |
-| 5.7 | 🟡 | | GBK/GB18030 命中链路基于 RD-08 解码链已可行（全文+页内）；无 GBK 样例正式验收，README 未声明限制 |
+| 5.7 | ✅ | | `test:mvp` 7.1 自动覆盖：GBK 样例打开/目录/正文/全文搜索均通过（`CHM_ASSISTANT_GBK_SAMPLE` 已由内置 fixture 满足） |
 
 ### 11.8 §6 Markdown 创作与编译
 
@@ -261,7 +261,7 @@ Monaco 与 markdown-it (6.1, 6.5) 在 6.6 前完成
 
 | 序号 | 状态 | 负责人 | 备注 |
 |------|------|--------|------|
-| 7.1 | ⚠️ | | 自动化用例就绪但**缺 GBK 样例**（`test/fixtures/gbk/sample.chm` 或 `CHM_ASSISTANT_GBK_SAMPLE`）；样例入库后 `test:mvp` 自动覆盖打开/目录/正文/全文搜索/页内粗测 |
+| 7.1 | ✅ | | `test:mvp` 自动通过：GBK 样例打开/目录/正文/全文搜索（fixture `test/fixtures/gbk/sample.chm` 已入库，`pnpm run fixture:gbk` 可重新生成） |
 | 7.2 | ✅ | | `test:mvp` 自动通过：UTF-8 无 BOM + 编译 + 产物中文（已装 chmcmd/hhc） |
 | 7.3 | ⚠️ | | 核心 i18n key 三语自动（`static.i18n.core` 通过）；界面路径人工表未签核 |
 | 7.4 | 🟡 | | 损坏样例自动通过；超大样例（人工）缺 `CHM_ASSISTANT_LARGE_SAMPLE` |
@@ -269,8 +269,8 @@ Monaco 与 markdown-it (6.1, 6.5) 在 6.6 前完成
 
 ### 11.10 建议优先补齐（发版前）
 
-1. **§7 人工签核**：`test:mvp` 已 13/0/3 通过（3 跳过均为人工项），按 [mvp-acceptance-signoff.md](./mvp-acceptance-signoff.md) 勾选 7.1～7.5 人工清单并签核。
-2. **GBK 样例入库**：复制至 `test/fixtures/gbk/sample.chm`（解锁 7.1 全部自动用例）；超大样例设置 `CHM_ASSISTANT_LARGE_SAMPLE`（7.4.large）。
+1. **§7 人工签核**：`test:mvp` 已 18/0/1 通过（跳过为超大 CHM 人工项），按 [mvp-acceptance-signoff.md](./mvp-acceptance-signoff.md) 勾选 7.1～7.5 人工清单并签核。
+2. **超大样例（7.4.large）**：设置 `CHM_ASSISTANT_LARGE_SAMPLE` 解锁最后一项自动用例。
 3. **§7.5**：mac / linux 安装包构建后人工安装验证（win-x64 NSIS 已通过自动检测）。
 4. （可选）**§5.4** 搜索结果列表关键词高亮、**§5.5** 滚动同步、**§5.6** 真实进度、**§1.6/1.7** 沙盒策略文档化与 Monaco 按需加载收紧。
 
