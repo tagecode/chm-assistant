@@ -6,18 +6,21 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { app } from 'electron'
+import { app, BrowserWindow } from 'electron'
 
 import { getCompilerStatus } from './compiler-resolve'
 import { closeChmSession, openChmSession, readChmPagePlainText } from './chm-reader-service'
 import { searchChmSession } from './chm-search'
 import { compileProject } from './chm-build/compile-project'
+import { CHM_TOC_SYNC_SCRIPT } from './chm-toc-sync'
 import type { ChmProjectConfig } from '../src/shared/project'
 import { loadProjectConfig, readUtf8NoBom } from './project-fs'
 import { createProjectInDirectory } from './project-bootstrap'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.join(__dirname, '..')
+
+const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
 type Status = 'pass' | 'fail' | 'skip' | 'warn'
 
@@ -267,6 +270,61 @@ async function checkCompileUtf8() {
   closeChmSession(verify.sessionId)
 }
 
+/** RD-06：目录滚动同步桥链路（下发锚点 → 滚动 → 回报激活锚点）。无窗口隐藏 BrowserWindow。 */
+async function checkTocScrollSync() {
+  // iframe 与父窗口不同源（与真实 chm: 场景一致）：桥通过 postMessage 通信，iframe 自行滚动
+  const iframeDoc = `<!doctype html><html><head><meta charset="utf-8">
+${CHM_TOC_SYNC_SCRIPT}
+<style>h1{margin:0;height:40px} .sec{height:700px}</style>
+<script>
+  // 等父窗口下发锚点后自行滚动到 Section B（约 740px 处）
+  setTimeout(function () { window.scrollTo(0, 900) }, 400)
+</script>
+</head><body>
+<h1 id="a">Section A</h1><div class="sec"></div>
+<h1 id="b">Section B</h1><div class="sec"></div>
+<h1 id="c">Section C</h1><div class="sec"></div>
+</body></html>`
+  const hostHtml = `<!doctype html><html><body>
+<iframe id="chm-frame" sandbox="allow-scripts allow-same-origin" src="data:text/html;charset=utf-8,${encodeURIComponent(iframeDoc)}"></iframe>
+<script>
+  window.__active = null
+  addEventListener('message', (e) => {
+    if (e.data && e.data.channel === 'chm-assistant-toc-active') {
+      window.__active = e.data.anchor
+    }
+  })
+  var f = document.getElementById('chm-frame')
+  f.addEventListener('load', function () {
+    f.contentWindow.postMessage({ channel: 'chm-assistant-toc-anchors', anchorIds: ['a', 'b', 'c'] }, '*')
+  })
+</script>
+</body></html>`
+
+  let win: BrowserWindow | null = null
+  try {
+    win = new BrowserWindow({ show: false, width: 800, height: 600 })
+    await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(hostHtml)}`)
+    await delay(1200)
+    const active = await win.webContents.executeJavaScript('window.__active')
+    record({
+      id: '5.5.toc-scroll-sync',
+      title: '目录滚动同步桥（RD-06）：滚动后回报激活锚点',
+      status: active === 'b' ? 'pass' : 'fail',
+      message: active ? `anchor=${active}` : '无回报',
+    })
+  } catch (e) {
+    record({
+      id: '5.5.toc-scroll-sync',
+      title: '目录滚动同步桥（RD-06）：滚动后回报激活锚点',
+      status: 'fail',
+      message: e instanceof Error ? e.message : String(e),
+    })
+  } finally {
+    win?.destroy()
+  }
+}
+
 /** 生成 GBK 验收样例（CHM_ASSISTANT_GENERATE_GBK_FIXTURE=1 时进入，跳过验收）。 */
 async function generateGbkFixture(): Promise<boolean> {
   if (process.env.CHM_ASSISTANT_GENERATE_GBK_FIXTURE !== '1') {
@@ -443,6 +501,7 @@ async function main() {
   checkCorruptChm()
   checkLargeChm()
   await checkCompileUtf8()
+  await checkTocScrollSync()
   checkPackagedArtifacts()
 
   const outDir = path.join(ROOT, 'test-results')

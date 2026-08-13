@@ -4,6 +4,7 @@ import type { ChmNativeAddon } from './chm-native'
 import { getChmAddon } from './chm-native'
 import { decodeChmText, transcodeBuffer } from './chm-text'
 import { injectFindBridge } from './chm-find-bridge'
+import { injectTocSyncBridge } from './chm-toc-sync'
 
 /** 宽松 CSP：旧式 CHM 常见内联脚本与相对资源；后续可按 PRD 收窄。 */
 const CHM_RESPONSE_CSP = [
@@ -120,6 +121,7 @@ export function registerChmProtocol(getReaderEncoding: () => string): void {
       let text = decodeChmText(body, encPref, true)
       text = rewriteChmHtmlLinks(text, parsed.sessionId)
       text = injectFindBridge(text)
+      text = injectTocSyncBridge(text)
       body = Buffer.from(text, 'utf8')
     } else if (isText) {
       body = transcodeBuffer(body, encPref, false)

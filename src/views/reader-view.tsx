@@ -9,6 +9,11 @@ import { useI18n } from '@/i18n/i18n-context'
 import type { MessageKey } from '@/i18n/zh-Hans'
 import { buildChmPageUrl } from '@/lib/chm-url'
 import { clearFindInChmIframe, findInChmIframe, previewFindInChmIframe } from '@/lib/find-in-chm-iframe'
+import {
+  collectPageAnchors,
+  parseTocSyncActive,
+  sendTocSyncAnchors,
+} from '@/lib/chm-toc-sync'
 import { findTocBreadcrumb } from '@/lib/toc-utils'
 import { cn } from '@/lib/utils'
 import type { ChmSearchHit, ChmTocItem, ReaderSidePanel, ReaderWidthMode } from '@/shared/electron'
@@ -37,12 +42,14 @@ function TocTree({
   depth,
   currentPath,
   currentFragment,
+  scrollSyncAnchor,
   onPick,
 }: {
   items: ChmTocItem[]
   depth: number
   currentPath: string
   currentFragment: string
+  scrollSyncAnchor: string | null
   onPick: (item: ChmTocItem) => void
 }) {
   return (
@@ -56,7 +63,8 @@ function TocTree({
         const active =
           Boolean(item.path) &&
           item.path === currentPath &&
-          (item.fragment ?? '') === (currentFragment || '')
+          ((item.fragment ?? '') === (currentFragment || '') ||
+            (Boolean(scrollSyncAnchor) && (item.fragment ?? '') === scrollSyncAnchor))
         return (
           <li key={`${depth}-${idx}-${item.path}-${item.title}`}>
             {item.path ? (
@@ -83,6 +91,7 @@ function TocTree({
                 depth={depth + 1}
                 currentPath={currentPath}
                 currentFragment={currentFragment}
+                scrollSyncAnchor={scrollSyncAnchor}
                 onPick={onPick}
               />
             ) : null}
@@ -97,18 +106,22 @@ function IndexList({
   items,
   currentPath,
   currentFragment,
+  scrollSyncAnchor,
   onPick,
 }: {
   items: ChmTocItem[]
   currentPath: string
   currentFragment: string
+  scrollSyncAnchor: string | null
   onPick: (item: ChmTocItem) => void
 }) {
   return (
     <ul className="space-y-0.5">
       {items.map((item, idx) => {
         const active =
-          item.path === currentPath && (item.fragment ?? '') === (currentFragment || '')
+          item.path === currentPath &&
+          ((item.fragment ?? '') === (currentFragment || '') ||
+            (Boolean(scrollSyncAnchor) && (item.fragment ?? '') === scrollSyncAnchor))
         return (
           <li key={`idx-${idx}-${item.path}-${item.title}`}>
             <button
@@ -293,6 +306,8 @@ export function ReaderView({
   const searchSeqRef = useRef(0)
   const [pageLoading, setPageLoading] = useState(true)
   const initialPageReadyRef = useRef(false)
+  /** RD-06 滚动同步：iframe 回报的当前激活锚点（独立于 currentFragment，避免 remount） */
+  const [scrollSyncAnchor, setScrollSyncAnchor] = useState<string | null>(null)
 
   const pushState = useCallback(
     (patch: Partial<ReaderUiState>) => {
@@ -328,16 +343,38 @@ export function ReaderView({
     setPageLoading(true)
   }, [frameSrc])
 
-  const syncFromIframe = useCallback(() => {
+  // RD-06：接收 iframe 滚动同步回报，更新目录高亮锚点
+  useEffect(() => {
+    const onMessage = (e: MessageEvent) => {
+      if (e.source !== iframeRef.current?.contentWindow) return
+      const parsed = parseTocSyncActive(e.data)
+      if (parsed) {
+        setScrollSyncAnchor(parsed.anchor)
+      }
+    }
+    window.addEventListener('message', onMessage)
+    return () => window.removeEventListener('message', onMessage)
+  }, [])
+
+  // 页面切换时清空滚动同步锚点（避免旧页面锚点误高亮）
+  useEffect(() => {
+    setScrollSyncAnchor(null)
+  }, [currentPath, tab.sessionId])
+
+  const syncFromIframe = useCallback((): { path: string; fragment: string } | null => {
     const w = iframeRef.current?.contentWindow
-    if (!w) return
+    if (!w) return null
     try {
       const u = new URL(w.location.href)
-      if (u.protocol !== 'chm:' || u.hostname !== tab.sessionId) return
-      setCurrentPath(decodeURIComponent(u.pathname) || '/')
-      setCurrentFragment(u.hash.startsWith('#') ? u.hash.slice(1) : u.hash)
+      if (u.protocol !== 'chm:' || u.hostname !== tab.sessionId) return null
+      const path = decodeURIComponent(u.pathname) || '/'
+      const fragment = u.hash.startsWith('#') ? u.hash.slice(1) : u.hash
+      setCurrentPath(path)
+      setCurrentFragment(fragment)
+      return { path, fragment }
     } catch {
       /* 导航中 */
+      return null
     }
   }, [tab.sessionId])
 
@@ -345,8 +382,11 @@ export function ReaderView({
     const el = iframeRef.current
     if (!el) return
     const fn = () => {
-      syncFromIframe()
+      const synced = syncFromIframe()
       setPageLoading(false)
+      // RD-06：告知 iframe 当前页面可高亮的目录锚点（用 iframe 真实 URL，而非闭包 state）
+      const anchors = collectPageAnchors(tab.toc, synced?.path ?? currentPath)
+      sendTocSyncAnchors(el, anchors)
       if (!initialPageReadyRef.current) {
         initialPageReadyRef.current = true
         onInitialPageReady?.(tab.id)
@@ -361,7 +401,7 @@ export function ReaderView({
     }
     el.addEventListener('load', fn)
     return () => el.removeEventListener('load', fn)
-  }, [syncFromIframe, frameSrc, pendingFind, onInitialPageReady, tab.id])
+  }, [syncFromIframe, frameSrc, pendingFind, onInitialPageReady, tab.id, currentPath, tab.toc])
 
   const onTocPick = useCallback((item: ChmTocItem) => {
     if (!item.path) return
@@ -649,6 +689,7 @@ export function ReaderView({
                   depth={0}
                   currentPath={currentPath}
                   currentFragment={currentFragment}
+                  scrollSyncAnchor={scrollSyncAnchor}
                   onPick={onTocPick}
                 />
               )
@@ -660,6 +701,7 @@ export function ReaderView({
                   items={tab.index}
                   currentPath={currentPath}
                   currentFragment={currentFragment}
+                  scrollSyncAnchor={scrollSyncAnchor}
                   onPick={onTocPick}
                 />
               )
